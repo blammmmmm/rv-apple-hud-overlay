@@ -10,7 +10,7 @@
   const miniEmoji = document.getElementById('miniEmoji');
   const laneProg  = document.getElementById('laneProgress');
 
-  // Label + vehicle defaults
+  // Labels & vehicle defaults
   let fromLabel    = qs('from','—');
   let toLabel      = qs('to','—');
   let vehicleMode  = 'emoji';           // 'emoji' | 'image'
@@ -24,6 +24,19 @@
   let tickTimer     = null;
   let autoResumeTimer = null;
   let progressPct   = 0; // 0..1
+
+  // --- optional debug HUD (enable with ?debug=1) ---
+  const debugOn = qs('debug', null) === '1';
+  let debugBox = null;
+  function debugRender() {
+    if (!debugOn) return;
+    if (!debugBox) {
+      debugBox = document.createElement('div');
+      debugBox.style.cssText = 'position:fixed;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;padding:6px 8px;border-radius:8px;font:12px/1.2 ui-sans-serif,-apple-system,Segoe UI,Roboto;z-index:9999';
+      document.body.appendChild(debugBox);
+    }
+    debugBox.textContent = `baselineSec=${baselineSec}  countdownSec=${countdownSec}  progress=${(progressPct*100).toFixed(1)}%`;
+  }
 
   function updateLabels(){
     fromEl.textContent = fromLabel;
@@ -52,6 +65,39 @@
         etaEl.textContent = 'ETA --:--';
       }
     }
+    debugRender();
+  }
+
+  function applyVehicleView(){
+    const isPlane =
+      (vehicleMode === 'emoji' && /✈/.test(vehicleEmoji)) ||
+      (vehicleMode === 'image' && /plane\.png$/i.test(vehicleImage));
+
+    if (miniEmoji) {
+      miniEmoji.classList.toggle('is-plane', isPlane);
+      miniEmoji.classList.toggle('is-rv', !isPlane);
+    }
+    if (miniIcon) {
+      miniIcon.classList.toggle('is-plane', isPlane);
+      miniIcon.classList.toggle('is-rv', !isPlane);
+    }
+
+    const leftPct = (progressPct * 100) + '%';
+    if (vehicleMode === 'emoji') {
+      if (miniEmoji){
+        miniEmoji.textContent = vehicleEmoji;
+        miniEmoji.style.display = 'block';
+        miniEmoji.style.left = leftPct;
+      }
+      if (miniIcon) miniIcon.style.display = 'none';
+    } else {
+      if (miniIcon){
+        miniIcon.src = vehicleImage;
+        miniIcon.style.display = 'block';
+        miniIcon.style.left = leftPct;
+      }
+      if (miniEmoji) miniEmoji.style.display = 'none';
+    }
   }
 
   function setProgressByTimer(){
@@ -63,6 +109,7 @@
     }
     if (laneProg) laneProg.style.width = (progressPct*100) + '%';
     applyVehicleView();
+    debugRender();
   }
 
   function startTick(){
@@ -108,44 +155,12 @@
     }
   }
 
-  // ✅ ANIMATION-AWARE vehicle display (RV / plane)
-  function applyVehicleView(){
-    const isPlane =
-      (vehicleMode === 'emoji' && /✈/.test(vehicleEmoji)) ||
-      (vehicleMode === 'image' && /plane\.png$/i.test(vehicleImage));
-
-    if (miniEmoji) {
-      miniEmoji.classList.toggle('is-plane', isPlane);
-      miniEmoji.classList.toggle('is-rv', !isPlane);
-    }
-    if (miniIcon) {
-      miniIcon.classList.toggle('is-plane', isPlane);
-      miniIcon.classList.toggle('is-rv', !isPlane);
-    }
-
-    const leftPct = (progressPct * 100) + '%';
-    if (vehicleMode === 'emoji') {
-      if (miniEmoji){
-        miniEmoji.textContent = vehicleEmoji;
-        miniEmoji.style.display = 'block';
-        miniEmoji.style.left = leftPct;
-      }
-      if (miniIcon) miniIcon.style.display = 'none';
-    } else {
-      if (miniIcon){
-        miniIcon.src = vehicleImage;
-        miniIcon.style.display = 'block';
-        miniIcon.style.left = leftPct;
-      }
-      if (miniEmoji) miniEmoji.style.display = 'none';
-    }
-  }
-
   // ===== MESSAGE API =====
+  let gotAnyMessage = false; // for failsafe auto-demo
   window.addEventListener('message', (event) => {
     const msg = event.data || {};
+    gotAnyMessage = true;
 
-    // labels & manual vehicle update
     if (msg.type === 'rv:update'){
       if (typeof msg.rv === 'string') { vehicleMode = 'image'; vehicleImage = msg.rv; }
       if (typeof msg.from === 'string') fromLabel = msg.from;
@@ -154,7 +169,6 @@
       return;
     }
 
-    // MANUAL TIMER
     if (msg.type === 'eta:setCountdown'){
       const h = Math.max(0, Number(msg.hours||0));
       const m = Math.max(0, Math.min(59, Number(msg.minutes||0)));
@@ -190,49 +204,60 @@
       return;
     }
 
-    // PAUSE/RESUME
     if (msg.type === 'rv:pause')       return void setPaused(true, msg.reason||'', msg.minutes||null);
     if (msg.type === 'rv:resume')      return void setPaused(false);
     if (msg.type === 'rv:togglePause') return void setPaused(!paused, msg.reason||'');
 
-    // VEHICLE SELECTION
     if (msg.type === 'vehicle:select'){
       const preset = (msg.preset||'rv').toLowerCase();
       const mode   = (msg.mode||'emoji').toLowerCase();
-
-      if (mode==='emoji'){
-        vehicleMode='emoji';
-        vehicleEmoji = preset==='plane' ? '✈️' : '🚐';
-      } else {
-        vehicleMode='image';
-        vehicleImage = preset==='plane' ? 'assets/plane.png' : 'assets/rv.png';
-      }
+      if (mode==='emoji'){ vehicleMode='emoji'; vehicleEmoji = preset==='plane' ? '✈️' : '🚐'; }
+      else { vehicleMode='image'; vehicleImage = preset==='plane' ? 'assets/plane.png' : 'assets/rv.png'; }
       applyVehicleView();
       return;
     }
-
     if (msg.type === 'vehicle:emoji'){
       if (typeof msg.char==='string' && msg.char.trim()){
-        vehicleMode='emoji';
-        vehicleEmoji=msg.char.trim();
-        applyVehicleView();
+        vehicleMode='emoji'; vehicleEmoji=msg.char.trim(); applyVehicleView();
       }
       return;
     }
-
     if (msg.type === 'vehicle:image'){
       if (typeof msg.url==='string' && msg.url.trim()){
-        vehicleMode='image';
-        vehicleImage=msg.url.trim();
-        applyVehicleView();
+        vehicleMode='image'; vehicleImage=msg.url.trim(); applyVehicleView();
       }
       return;
     }
   });
 
-  // init
+  // ===== INIT =====
   updateLabels();
   renderETA();
   setProgressByTimer();
   applyVehicleView();
+
+  // URL-based demo (explicit)
+  const demoSec = Number(qs('demoSec', 0));
+  const demoMin = Number(qs('demoMin', 0));
+  const autoStartSec = Number.isFinite(demoSec) && demoSec > 0
+    ? Math.floor(demoSec)
+    : (Number.isFinite(demoMin) && demoMin > 0 ? Math.floor(demoMin*60) : 0);
+  if (autoStartSec > 0) {
+    baselineSec = autoStartSec;
+    countdownSec = autoStartSec;
+    statusEl.textContent = `${fromLabel} → ${toLabel}`;
+    setProgressByTimer(); renderETA();
+    if (!paused) startTick();
+  }
+
+  // Failsafe demo: if no message arrives within 2s and no URL demo, auto-run 20s
+  setTimeout(() => {
+    if (!gotAnyMessage && baselineSec === 0) {
+      baselineSec = 20; // 20s demo to prove motion
+      countdownSec = 20;
+      statusEl.textContent = `${fromLabel} → ${toLabel}`;
+      setProgressByTimer(); renderETA();
+      if (!paused) startTick();
+    }
+  }, 2000);
 })();
