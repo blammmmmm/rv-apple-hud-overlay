@@ -4,7 +4,7 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 #root { width: 100vw; height: 100vh; position: relative; }
 .stage { position: absolute; inset: 0; overflow: hidden; }
 
-/* Hide the large floating RV */
+/* Hide the legacy big RV */
 .rv { display: none !important; }
 
 /* ===== Pill HUD ===== */
@@ -23,69 +23,53 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 .eta { font-weight: 700; color: #e5e7eb; font-size: clamp(13px, 2vw, 16px); opacity: .95; }
 
 .hud-bottom { display: flex; align-items: center; justify-content: space-between; }
-.status { font-size: 12px; color: #cbd5e1; opacity: .95; }
+.status {
+  font-size: 12px; color: #cbd5e1; opacity: .98;
+  /* crossfade (Option 1) */
+  transition: opacity .22s ease, filter .22s ease;
+}
+.status.is-fading { opacity: 0; filter: blur(.3px); }
 .status.paused { color: #fbbf24; }
 
 /* ===== Mini lane with progress ===== */
 .mini-lane { position: relative; flex: 1 1 auto; height: 18px; margin: 0 8px; min-width: 140px; }
 
-/* Clean asphalt (NO dash, NO animation, NO pseudo-content) */
+/* Clean lane (no dash) */
 .mini-lane .lane-bg {
   position: absolute; inset: 0; border-radius: 999px;
-  background: rgba(255,255,255,.06) !important;
-  background-image: none !important;
-  background-size: auto !important;
-  background-position: 0 0 !important;
+  background: rgba(255,255,255,.06);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
-  animation: none !important;
 }
-.mini-lane .lane-bg::before,
-.mini-lane .lane-bg::after,
-.mini-lane::before,
-.mini-lane::after {
-  content: none !important;
-  background: none !important;
-  background-image: none !important;
-}
-
-/* Blue fill bar — fully opaque */
 .lane-progress {
   position: absolute; left: 0; top: 0; height: 100%; width: 0%;
   border-radius: 999px;
-  background: linear-gradient(to right, #4DA3FF, #2F7EE8) !important;
-  background-image: linear-gradient(to right, #4DA3FF, #2F7EE8) !important;
-  background-position: 0 0 !important;
-  background-size: 100% 100% !important;
+  background: linear-gradient(to right, #4DA3FF, #2F7EE8);
 }
 
-/* In-pill vehicle (emoji or image) */
+/* Vehicle (emoji or image) */
 .mini-icon, .mini-emoji {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
   transition: left .25s linear;
   animation: drive-bob 2.2s ease-in-out infinite;
 }
-
 @keyframes drive-bob {
   0%   { transform: translate(-50%,-50%) rotate(-1deg); }
   50%  { transform: translate(-50%,-52%) rotate(1deg);  }
   100% { transform: translate(-50%,-50%) rotate(-1deg); }
 }
-
-.mini-emoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; }
+.mini-emoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; display:none; } /* emoji off by default */
 .mini-icon  { left: 0%; width: 24px; height: 15px; display: none; }
 
-/* Plane bob variant */
+/* Plane wobble variant */
 .mini-emoji.is-plane, .mini-icon.is-plane {
   animation: plane-bob 2.6s ease-in-out infinite;
 }
-
 @keyframes plane-bob {
   0%   { transform: translate(-50%,-50%) rotate(-2deg); }
   50%  { transform: translate(-50%,-53%) rotate(2deg);  }
   100% { transform: translate(-50%,-50%) rotate(-2deg); }
 }
-
 /* Tiny prop spin when using plane.png */
 .mini-icon.is-plane { position: relative; }
 .mini-icon.is-plane::after {
@@ -97,7 +81,6 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
   animation: prop-spin .6s linear infinite;
   pointer-events: none;
 }
-
 @keyframes prop-spin {
   0%   { transform: translate(-50%,-50%) rotate(0deg); }
   100% { transform: translate(-50%,-50%) rotate(360deg); }
@@ -105,41 +88,7 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 
 /* Pause freeze */
 body.paused .mini-emoji,
-body.paused .mini-icon {
-  animation-play-state: paused;
-  opacity: .95;
-}
-/* ==== KILL THE MYSTERY DASH/SQUARE (defensive overrides) ==== */
+body.paused .mini-icon { animation-play-state: paused; opacity: .95; }
 
-/* Hide the background layer entirely */
-.mini-lane .lane-bg {
-  display: none !important;
-}
-
-/* Remove any sneaky pseudo-elements or backgrounds */
-.mini-lane,
-.mini-lane * ,
-.mini-lane *::before,
-.mini-lane *::after {
-  background-image: none !important;
-  background-repeat: no-repeat !important;
-  background-position: 0 0 !important;
-}
-
-/* Reassert the clean lane + fill visuals */
-.mini-lane {
-  background: rgba(255,255,255,.06) !important;
-  border-radius: 999px !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08) !important;
-  overflow: hidden; /* clip any strays */
-}
-
-.lane-progress {
-  position: absolute !important;
-  left: 0 !important; top: 0 !important; height: 100% !important;
-  width: 0% !important; border-radius: 999px !important;
-  background: linear-gradient(to right, #4DA3FF, #2F7EE8) !important;
-}
-/* Hide emoji vehicle by default; only show when body has .emoji-mode */
-.mini-emoji { display: none !important; }
-body.emoji-mode .mini-emoji { display: block !important; }
+/* Show emoji only when explicitly enabled on body */
+body.emoji-mode .mini-emoji { display:block !important; }
