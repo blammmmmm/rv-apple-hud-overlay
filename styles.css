@@ -109,3 +109,34 @@ body.paused .mini-icon {
   animation-play-state: paused;
   opacity: .95;
 }
+/* ==== KILL THE MYSTERY DASH/SQUARE (defensive overrides) ==== */
+
+/* Hide the background layer entirely */
+.mini-lane .lane-bg {
+  display: none !important;
+}
+
+/* Remove any sneaky pseudo-elements or backgrounds */
+.mini-lane,
+.mini-lane * ,
+.mini-lane *::before,
+.mini-lane *::after {
+  background-image: none !important;
+  background-repeat: no-repeat !important;
+  background-position: 0 0 !important;
+}
+
+/* Reassert the clean lane + fill visuals */
+.mini-lane {
+  background: rgba(255,255,255,.06) !important;
+  border-radius: 999px !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08) !important;
+  overflow: hidden; /* clip any strays */
+}
+
+.lane-progress {
+  position: absolute !important;
+  left: 0 !important; top: 0 !important; height: 100% !important;
+  width: 0% !important; border-radius: 999px !important;
+  background: linear-gradient(to right, #4DA3FF, #2F7EE8) !important;
+}
