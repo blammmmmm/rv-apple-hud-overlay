@@ -1,3 +1,4 @@
+/* v9-cachebust */
 (() => {
   const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
 
@@ -13,7 +14,7 @@
   // Labels & vehicle defaults
   let fromLabel    = qs('from','—');
   let toLabel      = qs('to','—');
-  let vehicleMode  = 'emoji';           // 'emoji' | 'image'
+  let vehicleMode  = 'emoji';
   let vehicleEmoji = '🚐';
   let vehicleImage = qs('rv','assets/rv.png');
 
@@ -25,14 +26,14 @@
   let autoResumeTimer = null;
   let progressPct   = 0; // 0..1
 
-  // --- optional debug HUD (enable with ?debug=1) ---
+  // Debug HUD
   const debugOn = qs('debug', null) === '1';
   let debugBox = null;
   function debugRender() {
     if (!debugOn) return;
     if (!debugBox) {
       debugBox = document.createElement('div');
-      debugBox.style.cssText = 'position:fixed;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;padding:6px 8px;border-radius:8px;font:12px/1.2 ui-sans-serif,-apple-system,Segoe UI,Roboto;z-index:9999';
+      debugBox.style.cssText = 'position:fixed;left:10px;bottom:10px;background:rgba(0,0,0,.65);color:#fff;padding:6px 8px;border-radius:8px;font:12px ui-sans-serif,z-index:99999';
       document.body.appendChild(debugBox);
     }
     debugBox.textContent = `baselineSec=${baselineSec}  countdownSec=${countdownSec}  progress=${(progressPct*100).toFixed(1)}%`;
@@ -73,31 +74,22 @@
       (vehicleMode === 'emoji' && /✈/.test(vehicleEmoji)) ||
       (vehicleMode === 'image' && /plane\.png$/i.test(vehicleImage));
 
-    if (miniEmoji) {
-      miniEmoji.classList.toggle('is-plane', isPlane);
-      miniEmoji.classList.toggle('is-rv', !isPlane);
-    }
-    if (miniIcon) {
-      miniIcon.classList.toggle('is-plane', isPlane);
-      miniIcon.classList.toggle('is-rv', !isPlane);
+    const leftPct = (progressPct * 100) + '%';
+
+    if (vehicleMode === 'emoji') {
+      miniEmoji.textContent = vehicleEmoji;
+      miniEmoji.style.display = 'block';
+      miniEmoji.style.left = leftPct;
+      miniIcon.style.display = 'none';
+    } else {
+      miniIcon.src = vehicleImage;
+      miniIcon.style.display = 'block';
+      miniIcon.style.left = leftPct;
+      miniEmoji.style.display = 'none';
     }
 
-    const leftPct = (progressPct * 100) + '%';
-    if (vehicleMode === 'emoji') {
-      if (miniEmoji){
-        miniEmoji.textContent = vehicleEmoji;
-        miniEmoji.style.display = 'block';
-        miniEmoji.style.left = leftPct;
-      }
-      if (miniIcon) miniIcon.style.display = 'none';
-    } else {
-      if (miniIcon){
-        miniIcon.src = vehicleImage;
-        miniIcon.style.display = 'block';
-        miniIcon.style.left = leftPct;
-      }
-      if (miniEmoji) miniEmoji.style.display = 'none';
-    }
+    miniEmoji?.classList.toggle('is-plane', isPlane);
+    miniIcon?.classList.toggle('is-plane', isPlane);
   }
 
   function setProgressByTimer(){
@@ -107,7 +99,7 @@
       const done = Math.max(0, baselineSec - countdownSec);
       progressPct = Math.min(1, done / baselineSec);
     }
-    if (laneProg) laneProg.style.width = (progressPct*100) + '%';
+    laneProg.style.width = (progressPct * 100) + '%';
     applyVehicleView();
     debugRender();
   }
@@ -115,15 +107,14 @@
   function startTick(){
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(() => {
-      if (paused) return;
-      if (countdownSec > 0){
+      if (!paused && countdownSec > 0) {
         countdownSec -= 1;
         setProgressByTimer();
         renderETA();
-      } else if (baselineSec > 0){
+      } else if (baselineSec > 0 && countdownSec <= 0) {
         clearInterval(tickTimer);
         tickTimer = null;
-        setProgressByTimer(); // snap to 100%
+        setProgressByTimer();
         statusEl.textContent = 'Arrived';
         renderETA();
       }
@@ -131,50 +122,42 @@
   }
 
   function stopTick(){
-    if (tickTimer){
-      clearInterval(tickTimer);
-      tickTimer = null;
-    }
+    clearInterval(tickTimer);
+    tickTimer = null;
   }
 
   function setPaused(p, reason='', minutes=null){
     paused = !!p;
     if (paused){
       document.body.classList.add('paused');
-      statusEl.textContent = reason ? `Paused — ${reason}` : 'Paused';
-      renderETA();
-      if (autoResumeTimer) clearTimeout(autoResumeTimer);
-      if (minutes && minutes>0){
-        autoResumeTimer = setTimeout(()=>setPaused(false), minutes*60*1000);
-      }
+      statusEl.textContent = reason || 'Paused';
     } else {
       document.body.classList.remove('paused');
       statusEl.textContent = `${fromLabel} → ${toLabel}`;
-      renderETA();
       if (countdownSec>0 && !tickTimer) startTick();
     }
+    renderETA();
   }
 
   // ===== MESSAGE API =====
-  let gotAnyMessage = false; // for failsafe auto-demo
+  let gotAnyMessage = false;
   window.addEventListener('message', (event) => {
     const msg = event.data || {};
     gotAnyMessage = true;
 
     if (msg.type === 'rv:update'){
-      if (typeof msg.rv === 'string') { vehicleMode = 'image'; vehicleImage = msg.rv; }
-      if (typeof msg.from === 'string') fromLabel = msg.from;
-      if (typeof msg.to === 'string')   toLabel   = msg.to;
+      if (msg.rv) { vehicleMode = 'image'; vehicleImage = msg.rv; }
+      if (msg.from) fromLabel = msg.from;
+      if (msg.to)   toLabel   = msg.to;
       updateLabels(); renderETA(); applyVehicleView();
       return;
     }
 
     if (msg.type === 'eta:setCountdown'){
-      const h = Math.max(0, Number(msg.hours||0));
-      const m = Math.max(0, Math.min(59, Number(msg.minutes||0)));
+      const h = Number(msg.hours||0);
+      const m = Number(msg.minutes||0);
       baselineSec = (h*3600) + (m*60);
       countdownSec = baselineSec;
-      statusEl.textContent = `${fromLabel} → ${toLabel}`;
       setProgressByTimer(); renderETA();
       if (!paused) startTick();
       return;
@@ -185,48 +168,26 @@
       countdownSec = Math.max(0, countdownSec + delta);
       baselineSec  = Math.max(0, baselineSec + delta);
       setProgressByTimer(); renderETA();
-      if (!paused && countdownSec>0 && !tickTimer) startTick();
-      if (countdownSec===0) stopTick();
-      return;
-    }
-
-    if (msg.type === 'eta:resetCountdown'){
-      countdownSec = baselineSec;
-      setProgressByTimer(); renderETA();
-      if (!paused && countdownSec>0 && !tickTimer) startTick();
-      if (countdownSec===0) stopTick();
       return;
     }
 
     if (msg.type === 'eta:stop'){
-      baselineSec=0; countdownSec=0;
-      stopTick(); setProgressByTimer(); renderETA();
+      baselineSec = 0;
+      countdownSec = 0;
+      stopTick();
+      setProgressByTimer(); renderETA();
       return;
     }
 
-    if (msg.type === 'rv:pause')       return void setPaused(true, msg.reason||'', msg.minutes||null);
-    if (msg.type === 'rv:resume')      return void setPaused(false);
-    if (msg.type === 'rv:togglePause') return void setPaused(!paused, msg.reason||'');
+    if (msg.type === 'rv:pause')       return setPaused(true, msg.reason, msg.minutes);
+    if (msg.type === 'rv:resume')      return setPaused(false);
+    if (msg.type === 'rv:togglePause') return setPaused(!paused);
 
     if (msg.type === 'vehicle:select'){
-      const preset = (msg.preset||'rv').toLowerCase();
-      const mode   = (msg.mode||'emoji').toLowerCase();
-      if (mode==='emoji'){ vehicleMode='emoji'; vehicleEmoji = preset==='plane' ? '✈️' : '🚐'; }
-      else { vehicleMode='image'; vehicleImage = preset==='plane' ? 'assets/plane.png' : 'assets/rv.png'; }
+      vehicleMode = msg.mode === 'image' ? 'image' : 'emoji';
+      if (msg.mode === 'emoji') vehicleEmoji = msg.preset==='plane' ? '✈️' : '🚐';
+      else vehicleImage = msg.preset==='plane' ? 'assets/plane.png' : 'assets/rv.png';
       applyVehicleView();
-      return;
-    }
-    if (msg.type === 'vehicle:emoji'){
-      if (typeof msg.char==='string' && msg.char.trim()){
-        vehicleMode='emoji'; vehicleEmoji=msg.char.trim(); applyVehicleView();
-      }
-      return;
-    }
-    if (msg.type === 'vehicle:image'){
-      if (typeof msg.url==='string' && msg.url.trim()){
-        vehicleMode='image'; vehicleImage=msg.url.trim(); applyVehicleView();
-      }
-      return;
     }
   });
 
@@ -236,28 +197,20 @@
   setProgressByTimer();
   applyVehicleView();
 
-  // URL-based demo (explicit)
+  // URL demo
   const demoSec = Number(qs('demoSec', 0));
-  const demoMin = Number(qs('demoMin', 0));
-  const autoStartSec = Number.isFinite(demoSec) && demoSec > 0
-    ? Math.floor(demoSec)
-    : (Number.isFinite(demoMin) && demoMin > 0 ? Math.floor(demoMin*60) : 0);
-  if (autoStartSec > 0) {
-    baselineSec = autoStartSec;
-    countdownSec = autoStartSec;
-    statusEl.textContent = `${fromLabel} → ${toLabel}`;
-    setProgressByTimer(); renderETA();
-    if (!paused) startTick();
+  if (demoSec > 0) {
+    baselineSec = demoSec;
+    countdownSec = demoSec;
+    startTick();
   }
 
-  // Failsafe demo: if no message arrives within 2s and no URL demo, auto-run 20s
+  // Failsafe: auto 20s demo if nothing received after 2s
   setTimeout(() => {
     if (!gotAnyMessage && baselineSec === 0) {
-      baselineSec = 20; // 20s demo to prove motion
+      baselineSec = 20;
       countdownSec = 20;
-      statusEl.textContent = `${fromLabel} → ${toLabel}`;
-      setProgressByTimer(); renderETA();
-      if (!paused) startTick();
+      startTick();
     }
   }, 2000);
 })();
