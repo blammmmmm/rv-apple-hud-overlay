@@ -33,3 +33,64 @@ html,body{width:100%;height:100%;background:transparent;font-family:ui-sans-seri
 
 /* Pause visuals */
 body.paused .mini-icon, body.paused .mini-emoji{opacity:.85}
+/* --- Motion polish --- */
+
+/* Scroll the center dash line a bit for motion feel */
+.mini-lane .lane-bg {
+  animation: road-scroll 0.9s linear infinite;
+}
+@keyframes road-scroll {
+  /* shift the background 28px = one dash cycle */
+  0%   { background-position: 0 50%, 0 0; }
+  100% { background-position: 28px 50%, 0 0; }
+}
+
+/* Vehicle micro-motion (applies to emoji or image) */
+.mini-emoji, .mini-icon {
+  transition: left .25s linear;           /* smooth progress updates */
+  animation: drive-bob 2.2s ease-in-out infinite;
+}
+
+/* Default “drive” bob + tiny steering wiggle (RV) */
+@keyframes drive-bob {
+  0%   { transform: translate(-50%,-50%) rotate(-1deg); }
+  50%  { transform: translate(-50%,-52%) rotate(1deg);  }
+  100% { transform: translate(-50%,-50%) rotate(-1deg); }
+}
+
+/* Plane has a lighter float and bank */
+.mini-emoji.is-plane, .mini-icon.is-plane {
+  animation: plane-bob 2.6s ease-in-out infinite;
+}
+@keyframes plane-bob {
+  0%   { transform: translate(-50%,-50%) rotate(-2deg); }
+  50%  { transform: translate(-50%,-53%) rotate(2deg);  }
+  100% { transform: translate(-50%,-50%) rotate(-2deg); }
+}
+
+/* Optional: tiny propeller blur if using plane.png (on the image) */
+.mini-icon.is-plane {
+  position: relative;
+}
+.mini-icon.is-plane::after {
+  content: "";
+  position: absolute; top: 45%; left: 60%;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255,255,255,.9), rgba(255,255,255,.2) 60%, transparent 70%);
+  transform: translate(-50%,-50%);
+  animation: prop-spin .6s linear infinite;
+  pointer-events: none;
+}
+@keyframes prop-spin {
+  0%   { transform: translate(-50%,-50%) rotate(0deg); }
+  100% { transform: translate(-50%,-50%) rotate(360deg); }
+}
+
+/* Pause all motion when overlay paused */
+body.paused .mini-emoji,
+body.paused .mini-icon,
+body.paused .mini-lane .lane-bg {
+  animation-play-state: paused;
+  opacity: .95; /* slight visual settle */
+}
