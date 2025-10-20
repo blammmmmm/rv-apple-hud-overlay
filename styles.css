@@ -4,7 +4,7 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 #root { width: 100vw; height: 100vh; position: relative; }
 .stage { position: absolute; inset: 0; overflow: hidden; }
 
-/* Hide the large floating RV above the pill (we use the in-pill icon) */
+/* Hide the large floating RV */
 .rv { display: none !important; }
 
 /* ===== Pill HUD ===== */
@@ -29,65 +29,51 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 /* ===== Mini lane with progress ===== */
 .mini-lane { position: relative; flex: 1 1 auto; height: 18px; margin: 0 8px; min-width: 140px; }
 
-/* Asphalt + center dashed line */
+/* Clean asphalt (no dash) */
 .mini-lane .lane-bg {
   position: absolute; inset: 0; border-radius: 999px;
-  background:
-    /* center dash */
-    linear-gradient(to right, transparent 0, transparent 50%, rgba(255,255,255,.55) 50%, rgba(255,255,255,.55) 60%, transparent 60%, transparent 100%) 0 50% / 28px 2px no-repeat,
-    /* asphalt */
-    rgba(255,255,255,.06);
+  background: rgba(255,255,255,.06);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  /* dash animation removed */
+  animation: none;
 }
 
-/* Blue fill that grows with progress */
+/* Blue fill bar — fully opaque so nothing bleeds through */
 .lane-progress {
   position: absolute; left: 0; top: 0; height: 100%; width: 0%;
   border-radius: 999px;
-  background: linear-gradient(to right, rgba(77,163,255,.6), rgba(77,163,255,.9));
+  background: linear-gradient(to right, #4DA3FF, #2F7EE8);
 }
 
-/* In-pill vehicle (emoji or image), exact position controlled via JS (left %) */
+/* In-pill vehicle (emoji or image) */
 .mini-icon, .mini-emoji {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
-}
-
-/* Default sizes (tweak if you want them a bit larger/smaller) */
-.mini-emoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; }
-.mini-icon  { left: 0%; width: 24px; height: 15px; display: none; }
-
-/* ===== Motion polish ===== */
-
-/* Subtle dash scroll for road/air feel */
-.mini-lane .lane-bg { animation: road-scroll 0.9s linear infinite; }
-@keyframes road-scroll {
-  0%   { background-position: 0 50%, 0 0; }
-  100% { background-position: 28px 50%, 0 0; } /* one dash cycle */
-}
-
-/* Smooth left% updates + default bob (RV) */
-.mini-emoji, .mini-icon {
   transition: left .25s linear;
   animation: drive-bob 2.2s ease-in-out infinite;
 }
+
 @keyframes drive-bob {
   0%   { transform: translate(-50%,-50%) rotate(-1deg); }
   50%  { transform: translate(-50%,-52%) rotate(1deg);  }
   100% { transform: translate(-50%,-50%) rotate(-1deg); }
 }
 
-/* Plane has lighter float/bank */
+.mini-emoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; }
+.mini-icon  { left: 0%; width: 24px; height: 15px; display: none; }
+
+/* Plane bob variant */
 .mini-emoji.is-plane, .mini-icon.is-plane {
   animation: plane-bob 2.6s ease-in-out infinite;
 }
+
 @keyframes plane-bob {
   0%   { transform: translate(-50%,-50%) rotate(-2deg); }
   50%  { transform: translate(-50%,-53%) rotate(2deg);  }
   100% { transform: translate(-50%,-50%) rotate(-2deg); }
 }
 
-/* Optional: tiny prop blur for plane.png image */
+/* Tiny prop spin when using plane.png */
 .mini-icon.is-plane { position: relative; }
 .mini-icon.is-plane::after {
   content: "";
@@ -98,15 +84,15 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
   animation: prop-spin .6s linear infinite;
   pointer-events: none;
 }
+
 @keyframes prop-spin {
   0%   { transform: translate(-50%,-50%) rotate(0deg); }
   100% { transform: translate(-50%,-50%) rotate(360deg); }
 }
 
-/* Pause all motion on pause */
+/* Pause freeze */
 body.paused .mini-emoji,
-body.paused .mini-icon,
-body.paused .mini-lane .lane-bg {
+body.paused .mini-icon {
   animation-play-state: paused;
   opacity: .95;
 }
