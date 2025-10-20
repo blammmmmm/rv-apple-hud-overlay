@@ -140,3 +140,6 @@ body.paused .mini-icon {
   width: 0% !important; border-radius: 999px !important;
   background: linear-gradient(to right, #4DA3FF, #2F7EE8) !important;
 }
+/* Hide emoji vehicle by default; only show when body has .emoji-mode */
+.mini-emoji { display: none !important; }
+body.emoji-mode .mini-emoji { display: block !important; }
