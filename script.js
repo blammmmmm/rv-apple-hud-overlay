@@ -348,3 +348,15 @@
     }
   }, 2000);
 })();
+/* ---- BroadcastChannel bridge (so controllers can talk without window refs) ---- */
+try {
+  const _rvChan = new BroadcastChannel('rv-hud');
+  _rvChan.onmessage = (ev) => {
+    // Reuse the existing message handler by re-dispatching as a 'message' event
+    window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
+  };
+  // Optional: expose a way for overlay to confirm it’s listening (debug)
+  window._rvChan = _rvChan;
+} catch (e) {
+  console.warn('BroadcastChannel not available; controller must use window.postMessage directly.', e);
+}
