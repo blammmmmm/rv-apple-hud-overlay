@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HUD Controller — Countdown (FINAL)</title>
+  <title>HUD Controller — Full (Server-Time Synced)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root { color-scheme: dark }
@@ -16,11 +16,13 @@
     button:hover { background:#223047 }
     .row { display:grid; grid-template-columns: repeat(12, 1fr); gap:10px; align-items:end }
     .col-3 { grid-column: span 3 }
+    .col-4 { grid-column: span 4 }
     .col-6 { grid-column: span 6 }
     .col-12 { grid-column: span 12 }
     .btn-row { display:flex; gap:8px; flex-wrap:wrap }
     .subtle-sep { margin:12px 0; height:1px; background:#222a35; border-radius:2px }
     .muted { color:#9fb0c7; font-size:12px }
+    code { background:#0f131c; padding:2px 6px; border-radius:6px; border:1px solid #2b374a }
   </style>
 </head>
 <body>
@@ -30,7 +32,7 @@
       <div class="muted">Room: <code id="roomName">marathon-pill-tracker</code></div>
     </div>
 
-    <!-- autosuggest source -->
+    <!-- ✅ Autosuggest list target (must exist) -->
     <datalist id="placesList"></datalist>
 
     <!-- Trip labels -->
@@ -56,7 +58,7 @@
 
     <!-- Timer -->
     <div class="card">
-      <h1>ETA Timer</h1>
+      <h1>ETA Timer (Countdown)</h1>
       <div class="row">
         <div class="col-3">
           <label>Hours</label>
@@ -88,8 +90,11 @@
     <div class="card">
       <h1>Vehicle</h1>
       <div class="btn-row">
-        <button id="setBus">Driving (🚌)</button>
+        <button id="setBus">Driving (🚌 / assets/bus.png)</button>
         <button id="setPlane">In Flight (✈️)</button>
+      </div>
+      <div class="muted" style="margin-top:6px">
+        Bus uses <code>assets/bus.png</code> in your repo. Plane uses the ✈️ emoji.
       </div>
     </div>
   </div>
@@ -99,9 +104,11 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getDatabase, ref, update, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
+    // ----- Room -----
     const ROOM = new URLSearchParams(location.search).get('room') || 'marathon-pill-tracker';
     document.getElementById('roomName').textContent = ROOM;
 
+    // ----- Firebase -----
     const firebaseConfig = {
       apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
       authDomain: "subathon-tracker.firebaseapp.com",
@@ -116,16 +123,19 @@
     const db  = getDatabase(app);
     const stateRef = ref(db, `overlays/${ROOM}/state`);
 
-    // --- SERVER TIME SYNC ---
-    let serverOffset = 0; // ms
+    // ----- Server time sync -----
+    let serverOffset = 0;
     onValue(ref(db, ".info/serverTimeOffset"), snap => {
       serverOffset = Number(snap.val() || 0);
     });
     const now = () => Date.now() + serverOffset;
 
+    // ----- Helpers -----
     const $ = id => document.getElementById(id);
+    async function read(){ const s=await get(stateRef); return s.val()||{}; }
+    async function write(obj){ return update(stateRef, { ...obj, updatedAt: now() }); }
 
-    // Autosuggest list
+    // ----- Autosuggest -----
     const PRESET_PLACES = [
       "Los Angeles, CA","Las Vegas, NV","Flagstaff, AZ","Albuquerque, NM","Denver, CO","Cheyenne, WY","Salt Lake City, UT","Boise, ID",
       "Portland, OR","Seattle, WA","Juneau, AK","Billings, MT","Fargo, ND","Minneapolis, MN","Sioux Falls, SD","Omaha, NE","Des Moines, IA",
@@ -139,17 +149,15 @@
     function saveHistory(l){ try{localStorage.setItem(LS_KEY, JSON.stringify(l));}catch{} }
     function merge(a,b){ return [...new Set([...a,...b])].sort() }
     function rebuildList(){
-      const list = $("#placesList"); list.innerHTML = "";
+      const list = $("#placesList");           // ✅ This exists in HTML above
+      list.innerHTML = "";
       merge(PRESET_PLACES, loadHistory()).forEach(v => {
         const op = document.createElement("option"); op.value = v; list.appendChild(op);
       });
     }
     function addHist(v){ v=(v||"").trim(); if(!v) return; const h=loadHistory(); if(!h.includes(v)){ h.push(v); saveHistory(h); rebuildList(); } }
 
-    async function read(){ const s=await get(stateRef); return s.val()||{}; }
-    async function write(obj){ return update(stateRef, { ...obj, updatedAt: now() }); }
-
-    // Timer writers (COUNTDOWN) — server time
+    // ----- Timer writers (COUNTDOWN, server time) -----
     async function startOrSetTimer(hours, minutes){
       const h = Math.max(0, parseInt(hours,10)||0);
       const m = Math.max(0, Math.min(59, parseInt(minutes,10)||0));
@@ -190,6 +198,7 @@
       await write({ paused:false, pausedAt:0, endAt:newEnd, pausedRemaining:0 });
     }
 
+    // ----- Wire up UI after DOM is ready -----
     window.addEventListener('DOMContentLoaded', () => {
       rebuildList();
 
