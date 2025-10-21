@@ -2,36 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HUD Controller — Version B (Autosuggest + Timer FIXED)</title>
+  <title>HUD Controller — Countdown (FINAL)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { color-scheme: dark; }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background:#0b0e13; color:#e5e7eb; margin:0; padding:24px; }
-    .wrap { max-width: 960px; margin:0 auto; display:grid; gap:16px; }
-    .card { background:#121722; border:1px solid #283041; border-radius:14px; padding:16px; }
-    h1 { font-size:18px; margin:0 0 8px; }
-    label { display:block; font-size:12px; color:#9fb0c7; margin-bottom:6px; }
-    input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #334055; background:#0f131c; color:#e5e7eb; }
-    button { padding:10px 12px; border-radius:10px; border:1px solid #2b374a; background:#1b2433; color:#e5e7eb; cursor:pointer; }
-    button:hover { background:#223047; }
-    .row { display:grid; grid-template-columns: repeat(12, 1fr); gap:10px; align-items:end; }
-    .col-3 { grid-column: span 3; }
-    .col-4 { grid-column: span 4; }
-    .col-6 { grid-column: span 6; }
-    .col-12 { grid-column: span 12; }
-    .btn-row { display:flex; gap:8px; flex-wrap:wrap; }
-    .subtle-sep { margin:12px 0; height:1px; background:#222a35; border-radius:2px; }
-    .muted { color:#9fb0c7; font-size:12px; }
+    :root { color-scheme: dark }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background:#0b0e13; color:#e5e7eb; margin:0; padding:24px }
+    .wrap { max-width: 960px; margin:0 auto; display:grid; gap:16px }
+    .card { background:#121722; border:1px solid #283041; border-radius:14px; padding:16px }
+    h1 { font-size:18px; margin:0 0 8px }
+    label { display:block; font-size:12px; color:#9fb0c7; margin-bottom:6px }
+    input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #334055; background:#0f131c; color:#e5e7eb }
+    button { padding:10px 12px; border-radius:10px; border:1px solid #2b374a; background:#1b2433; color:#e5e7eb; cursor:pointer }
+    button:hover { background:#223047 }
+    .row { display:grid; grid-template-columns: repeat(12, 1fr); gap:10px; align-items:end }
+    .col-3 { grid-column: span 3 }
+    .col-6 { grid-column: span 6 }
+    .col-12 { grid-column: span 12 }
+    .btn-row { display:flex; gap:8px; flex-wrap:wrap }
+    .subtle-sep { margin:12px 0; height:1px; background:#222a35; border-radius:2px }
+    .muted { color:#9fb0c7; font-size:12px }
   </style>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
-    // ---------- ROOM ----------
     const ROOM = new URLSearchParams(location.search).get('room') || 'marathon-pill-tracker';
 
-    // ---------- FIREBASE ----------
+    // Your Firebase (same as overlay)
     const firebaseConfig = {
       apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
       authDomain: "subathon-tracker.firebaseapp.com",
@@ -46,25 +44,15 @@
     const db  = getDatabase(app);
     const stateRef = ref(db, `overlays/${ROOM}/state`);
 
-    // ---------- HELPERS ----------
     const $ = id => document.getElementById(id);
     const now = () => Date.now();
-    async function read() { const s = await get(stateRef); return s.val() || {}; }
-    async function write(obj){ return update(stateRef, { ...obj, updatedAt: now() }); }
 
-    // ---------- AUTOSUGGEST ----------
-    const PRESET_PLACES = [
-      "Los Angeles, CA","Las Vegas, NV","Flagstaff, AZ","Albuquerque, NM","Denver, CO","Cheyenne, WY","Salt Lake City, UT","Boise, ID",
-      "Portland, OR","Seattle, WA","Juneau, AK","Billings, MT","Fargo, ND","Minneapolis, MN","Sioux Falls, SD","Omaha, NE","Des Moines, IA",
-      "Milwaukee, WI","Chicago, IL","Detroit, MI","Burlington, VT","Portland, ME","Manchester, NH","Boston, MA","Providence, RI","Bridgeport, CT",
-      "New York, NY","Princeton, NJ","Philadelphia, PA","Wilmington, DE","Baltimore, MD","Virginia Beach, VA","Charleston, NC","Jacksonville, FL",
-      "Greenville, NC","Charleston, WV","Columbus, OH","Indianapolis, IN","Louisville, KY","Nashville, TN","Atlanta, GA","Birmingham, AL",
-      "Kansas City, MO","Wichita, KS","Oklahoma City, OK","Little Rock, AK","Jackson, MS","New Orleans, LA","Houston, TX","Honolulu, HI"
-    ];
+    // Autosuggest list (your cities)
+    const PRESET_PLACES = ["Los Angeles, CA","Las Vegas, NV","Flagstaff, AZ","Albuquerque, NM","Denver, CO","Cheyenne, WY","Salt Lake City, UT","Boise, ID","Portland, OR","Seattle, WA","Juneau, AK","Billings, MT","Fargo, ND","Minneapolis, MN","Sioux Falls, SD","Omaha, NE","Des Moines, IA","Milwaukee, WI","Chicago, IL","Detroit, MI","Burlington, VT","Portland, ME","Manchester, NH","Boston, MA","Providence, RI","Bridgeport, CT","New York, NY","Princeton, NJ","Philadelphia, PA","Wilmington, DE","Baltimore, MD","Virginia Beach, VA","Charleston, NC","Jacksonville, FL","Greenville, NC","Charleston, WV","Columbus, OH","Indianapolis, IN","Louisville, KY","Nashville, TN","Atlanta, GA","Birmingham, AL","Kansas City, MO","Wichita, KS","Oklahoma City, OK","Little Rock, AK","Jackson, MS","New Orleans, LA","Houston, TX","Honolulu, HI"];
     const LS_KEY = "rv_places_history";
     function loadHistory(){ try{return JSON.parse(localStorage.getItem(LS_KEY)||"[]");}catch{return[]} }
     function saveHistory(l){ try{localStorage.setItem(LS_KEY, JSON.stringify(l));}catch{} }
-    function merge(a,b){ return [...new Set([...a,...b])].sort(); }
+    function merge(a,b){ return [...new Set([...a,...b])].sort() }
     function rebuildList(){
       const list = $("#placesList"); list.innerHTML = "";
       merge(PRESET_PLACES, loadHistory()).forEach(v => {
@@ -73,12 +61,13 @@
     }
     function addHist(v){ v=(v||"").trim(); if(!v) return; const h=loadHistory(); if(!h.includes(v)){ h.push(v); saveHistory(h); rebuildList(); } }
 
-    // ---------- TIMER WRITERS (FIXED) ----------
-    // These fields are what the overlay reads:
-    // baselineSec, startedAt, endAt, paused, pausedAt, pausedRemaining
+    async function read(){ const s=await get(stateRef); return s.val()||{}; }
+    async function write(obj){ return update(stateRef, { ...obj, updatedAt: now() }); }
+
+    // Timer writers (countdown)
     async function startOrSetTimer(hours, minutes){
-      const h = Math.max(0, parseInt(hours,10) || 0);
-      const m = Math.max(0, Math.min(59, parseInt(minutes,10) || 0));
+      const h = Math.max(0, parseInt(hours,10)||0);
+      const m = Math.max(0, Math.min(59, parseInt(minutes,10)||0));
       const baselineSec = h*3600 + m*60;
       const startedAt = now();
       const endAt = startedAt + baselineSec*1000;
@@ -108,7 +97,7 @@
     async function pauseTimer(){
       const cur = await read(); if (cur.paused) return;
       const remaining = Math.max(0, (cur.endAt||now()) - now());
-      await write({ paused:true, pausedAt:now(), pausedRemaining:remaining });
+      await write({ paused:true, pausedAt:now(), pausedRemaining: remaining });
     }
     async function resumeTimer(){
       const cur = await read(); if (!cur.paused) return;
@@ -116,7 +105,6 @@
       await write({ paused:false, pausedAt:0, endAt:newEnd, pausedRemaining:0 });
     }
 
-    // ---------- UI WIRING ----------
     window.addEventListener('DOMContentLoaded', () => {
       rebuildList();
 
@@ -130,7 +118,7 @@
       $("#swap").onclick  = () => { const f=$("#from").value,t=$("#to").value; $("#from").value=t; $("#to").value=f; };
       $("#chain").onclick = () => { $("#from").value = $("#to").value.trim(); $("#to").value = ""; };
 
-      // Timer controls (FIXED hookup)
+      // Timer controls
       $("#startSet").onclick = () => startOrSetTimer($("#hours").value, $("#minutes").value);
       document.querySelectorAll("button[data-min]").forEach(b=>{
         b.onclick = () => addMinutes(parseInt(b.getAttribute("data-min"),10)||0);
@@ -156,27 +144,26 @@
 
     <datalist id="placesList"></datalist>
 
-    <!-- Trip labels + helpers -->
     <div class="card">
       <h1>Trip Labels</h1>
       <div class="row">
         <div class="col-6">
           <label>From</label>
-          <input id="from" list="placesList" placeholder="Start (e.g., Los Angeles, CA)" />
+          <input id="from" list="placesList" placeholder="Start location"/>
         </div>
         <div class="col-6">
           <label>To</label>
-          <input id="to" list="placesList" placeholder="Destination (e.g., Las Vegas, NV)" />
+          <input id="to" list="placesList" placeholder="Destination"/>
         </div>
-        <div class="col-12 btn-row" style="margin-top:6px">
-          <button id="swap">Swap</button>
-          <button id="chain">Chain Route</button>
-          <button id="setLabels">Update Labels</button>
-        </div>
+      </div>
+      <div class="subtle-sep"></div>
+      <div class="btn-row">
+        <button id="swap">Swap</button>
+        <button id="chain">Chain</button>
+        <button id="setLabels">Update Labels</button>
       </div>
     </div>
 
-    <!-- Timer -->
     <div class="card">
       <h1>ETA Timer</h1>
       <div class="row">
@@ -188,7 +175,7 @@
           <label>Minutes</label>
           <input id="minutes" type="number" min="0" max="59" step="1" value="30"/>
         </div>
-        <div class="col-12 btn-row" style="margin-top:6px">
+        <div class="col-12 btn-row">
           <button id="startSet">Start / Set</button>
           <button data-min="+5">+5</button>
           <button data-min="+15">+15</button>
@@ -206,7 +193,6 @@
       </div>
     </div>
 
-    <!-- Vehicle -->
     <div class="card">
       <h1>Vehicle</h1>
       <div class="btn-row">
