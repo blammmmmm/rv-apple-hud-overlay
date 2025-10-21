@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RV Apple HUD — Pill Only</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="styles.css"/>
   <script defer src="script.js"></script>
 </head>
@@ -11,7 +11,7 @@
   <div id="root">
     <div class="stage"></div>
 
-    <!-- Hidden large RV (legacy, ignored) -->
+    <!-- Legacy RV (hidden) -->
     <div id="rv" class="rv">
       <img id="rvIcon" alt="RV"/>
       <div class="shadow"></div>
@@ -37,7 +37,6 @@
         </div>
 
         <div class="hud-bottom">
-          <!-- subtext (crossfades) -->
           <div class="status" id="status" aria-live="polite">preparing…</div>
           <div class="aux" id="aux"></div>
         </div>
