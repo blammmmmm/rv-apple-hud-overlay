@@ -8,8 +8,11 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 .rv { display: none !important; }
 
 /* ===== Pill HUD ===== */
-.hud-wrap { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 50; }
-.hud-pill {
+.hud-wrap,
+.hudWrap { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 50; }
+
+.hud-pill,
+.pillHUD {
   display: flex; flex-direction: column; gap: 2px;
   min-width: min(90vw, 720px);
   padding: 10px 14px; border-radius: 999px;
@@ -17,51 +20,59 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
   border: 1px solid rgba(255,255,255,.08);
   backdrop-filter: blur(8px);
 }
+
 .hud-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .states { font-weight: 700; letter-spacing: .2px; font-size: clamp(14px, 2.2vw, 18px); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .states .arrow { opacity: .85; margin: 0 6px; }
-.eta { font-weight: 700; color: #e5e7eb; font-size: clamp(13px, 2vw, 16px); opacity: .95; }
 
-.hud-bottom { display: flex; align-items: center; justify-content: space-between; }
-.status {
-  font-size: 12px; color: #cbd5e1; opacity: .98;
-  transition: opacity .22s ease, filter .22s ease; /* crossfade */
-}
-.status.is-fading { opacity: 0; filter: blur(.3px); }
-.status.paused { color: #fbbf24; }
+.eta { font-weight: 700; color: #e5e7eb; font-size: clamp(13px, 2vw, 16px); opacity: .95; }
+.arrived { color: #a8ffb6; }
 
 /* ===== Mini lane with progress ===== */
 .mini-lane { position: relative; flex: 1 1 auto; height: 18px; margin: 0 8px; min-width: 140px; }
 
-/* Clean lane (no dash) */
+/* Provide aliases so either structure works */
+.lane { position: relative; width: 320px; height: 18px; background: transparent; border-radius: 999px; }
+.lane::before { /* mimic your lane-bg inside .lane */
+  content:""; position:absolute; inset:0; border-radius:999px;
+  background: rgba(255,255,255,.06);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+/* Your lane background block (for .mini-lane markup) */
 .mini-lane .lane-bg {
   position: absolute; inset: 0; border-radius: 999px;
   background: rgba(255,255,255,.06);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
 }
+
 .lane-progress {
   position: absolute; left: 0; top: 0; height: 100%; width: 0%;
   border-radius: 999px;
   background: linear-gradient(to right, #4DA3FF, #2F7EE8);
 }
 
-/* Vehicle (emoji or image) */
-.mini-icon, .mini-emoji {
+/* ===== Vehicle (emoji or image) ===== */
+.mini-icon, .mini-emoji,
+#miniIcon, #miniEmoji {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
   transition: left .25s linear;
   animation: drive-bob 2.2s ease-in-out infinite;
 }
+
 @keyframes drive-bob {
   0%   { transform: translate(-50%,-50%) rotate(-1deg); }
   50%  { transform: translate(-50%,-52%) rotate(1deg);  }
   100% { transform: translate(-50%,-50%) rotate(-1deg); }
 }
-.mini-emoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; display:none; } /* emoji off by default */
-.mini-icon  { left: 0%; width: 24px; height: 15px; display: none; }
+
+.mini-emoji, #miniEmoji { left: 0%; font-size: 18px; line-height: 1; user-select: none; }
+.mini-icon,  #miniIcon  { left: 0%; width: 24px; height: 15px; }
 
 /* Plane wobble variant */
-.mini-emoji.is-plane, .mini-icon.is-plane {
+.mini-emoji.is-plane, .mini-icon.is-plane,
+#miniEmoji.is-plane, #miniIcon.is-plane {
   animation: plane-bob 2.6s ease-in-out infinite;
 }
 @keyframes plane-bob {
@@ -70,8 +81,8 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
   100% { transform: translate(-50%,-50%) rotate(-2deg); }
 }
 /* Tiny prop spin when using plane.png */
-.mini-icon.is-plane { position: relative; }
-.mini-icon.is-plane::after {
+.mini-icon.is-plane, #miniIcon.is-plane { position: relative; }
+.mini-icon.is-plane::after, #miniIcon.is-plane::after {
   content: "";
   position: absolute; top: 45%; left: 60%;
   width: 8px; height: 8px; border-radius: 50%;
@@ -87,7 +98,17 @@ html, body { width: 100%; height: 100%; background: transparent; font-family: ui
 
 /* Pause freeze */
 body.paused .mini-emoji,
-body.paused .mini-icon { animation-play-state: paused; opacity: .95; }
+body.paused .mini-icon,
+body.paused #miniEmoji,
+body.paused #miniIcon { animation-play-state: paused; opacity: .95; }
 
-/* Show emoji only when explicitly enabled */
-body.emoji-mode .mini-emoji { display:block !important; }
+/* Emoji toggle (if you use that mode) */
+body.emoji-mode .mini-emoji,
+body.emoji-mode #miniEmoji { display:block !important; }
+
+/* Utility */
+.status { font-size: 12px; color: #cbd5e1; opacity: .98; transition: opacity .22s ease, filter .22s ease; }
+.status.is-fading { opacity: 0; filter: blur(.3px); }
+.status.paused { color: #fbbf24; }
+
+.hidden { display: none !important; }
