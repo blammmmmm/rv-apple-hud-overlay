@@ -5,6 +5,7 @@ import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10
 const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
 const ROOM = qs('room', 'marathon-pill-tracker');
 
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
   authDomain: "subathon-tracker.firebaseapp.com",
@@ -20,9 +21,9 @@ const db  = getDatabase(app);
 const stateRef = ref(db, `overlays/${ROOM}/state`);
 
 // HUD DOM
-const fromEl = document.getElementById('fromState');
-const toEl   = document.getElementById('toState');
-const etaEl  = document.getElementById('eta');
+const fromEl   = document.getElementById('fromState');
+const toEl     = document.getElementById('toState');
+const etaEl    = document.getElementById('eta');
 const statusEl = document.getElementById('status');
 const laneProg = document.getElementById('laneProgress');
 const miniIcon  = document.getElementById('miniIcon');
@@ -39,20 +40,18 @@ let lastSnap = {};
 let tickHandle = null;
 
 function renderFromState(s){
-  // Labels
   fromEl.textContent = s.from || '—';
   toEl.textContent   = s.to   || '—';
 
-  // Vehicle
   const v = s.vehicle || {};
   const isEmoji = v.mode === 'emoji';
   if (isEmoji){
     miniEmoji.textContent = v.emoji || '🚐';
     miniEmoji.style.display = 'block';
-    miniIcon.style.display = 'none';
+    miniIcon.style.display  = 'none';
   } else {
     miniIcon.src = (v.image || 'assets/bus.png');
-    miniIcon.style.display = 'block';
+    miniIcon.style.display  = 'block';
     miniEmoji.style.display = 'none';
   }
 }
@@ -77,7 +76,6 @@ function compute() {
   const done = Math.max(0, base - remainingSec);
   const pct = base>0 ? Math.min(1, done/base) : 0;
 
-  // ETA text + status text
   if (base <= 0){
     etaEl.textContent = 'ETA --:--';
     statusEl.textContent = 'ready';
@@ -89,14 +87,12 @@ function compute() {
     statusEl.textContent = 'paused';
   } else {
     etaEl.textContent = `ETA ${fmtHMS(remainingSec)}`;
-    // Subtext vibe: en route / in flight
     const plane = (s.vehicle && s.vehicle.mode==='emoji' && (s.vehicle.emoji||'').includes('✈'));
     statusEl.textContent = plane ? 'in flight' : 'en route';
   }
 
-  // Progress + mini vehicle position
   laneProg.style.width = (pct*100) + '%';
-  const left = `calc(${(pct*100)}% - 10px)`; // keep inside pill
+  const left = `calc(${(pct*100)}% - 10px)`;
   if (miniEmoji.style.display === 'block') miniEmoji.style.left = left;
   if (miniIcon.style.display === 'block')  miniIcon.style.left  = left;
 }
@@ -110,5 +106,5 @@ onValue(stateRef, (snap) => {
   lastSnap = snap.val() || {};
   renderFromState(lastSnap);
   compute();
-  startTicker(); // keep 1s updates
+  startTicker();
 });
