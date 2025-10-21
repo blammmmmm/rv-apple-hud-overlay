@@ -1,4 +1,4 @@
-/* Overlay (Firebase) — persistent state, OBS-safe, 10s "departing…" */
+/* Overlay (Firebase) — persistent, emoji plane + bus.png, medium size */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
@@ -33,18 +33,18 @@ const miniEmoji = document.getElementById('miniEmoji');
 
 let ui = {
   from: '—', to: '—',
-  vehicle: { mode:'image', emoji:'🚐', image:'assets/rv.png' },
+  vehicle: { mode:'image', emoji:'🚌', image:'assets/bus.png' }, // default bus image
   baselineSec: 0,
-  startedAt: 0,       // epoch ms when timer was set
-  endAt: 0,           // epoch ms when ETA should be done (unless paused)
+  startedAt: 0,
+  endAt: 0,
   paused: false,
-  pausedAt: 0,        // ms when paused began
-  pausedRemaining: 0, // ms remaining at pause time
+  pausedAt: 0,
+  pausedRemaining: 0,
   updatedAt: 0
 };
 
-const DEPART_MS = 10_000;           // 10s departing window
-const ARRIVE_WIN_SEC = 10*60;       // "arriving soon…" under 10m
+const DEPART_MS = 10_000;
+const ARRIVE_WIN_SEC = 10*60;
 let tickTimer = null;
 let currentSub = '';
 
@@ -55,26 +55,25 @@ function setStatus(t){
   statusEl.classList.add('is-fading');
   setTimeout(()=>{ setText(statusEl, t); statusEl.classList.toggle('paused', t.startsWith('paused')); requestAnimationFrame(()=>statusEl.classList.remove('is-fading')); }, 120);
 }
-function isPlane(){
-  return (ui.vehicle.mode==='emoji' && /✈/.test(ui.vehicle.emoji)) ||
-         (ui.vehicle.mode==='image' && /plane\.png$/i.test(ui.vehicle.image));
+function isPlaneEmoji(){
+  return (ui.vehicle.mode==='emoji' && /✈/.test(ui.vehicle.emoji));
 }
 function renderVehicle(leftPct){
   if (ui.vehicle.mode==='emoji'){
     document.body.classList.add('emoji-mode');
     miniEmoji.style.left = leftPct;
-    miniEmoji.textContent = ui.vehicle.emoji || '🚐';
+    miniEmoji.textContent = ui.vehicle.emoji || '✈️';
     miniIcon.style.display='none'; miniIcon.removeAttribute('src');
   } else {
     document.body.classList.remove('emoji-mode');
     miniIcon.style.left = leftPct;
-    const src = ui.vehicle.image || 'assets/rv.png';
+    const src = ui.vehicle.image || 'assets/bus.png';
     const next = src + (src.includes('?') ? '&v=1' : '?v=1');
     if (miniIcon.getAttribute('src') !== next) miniIcon.src = next;
     miniEmoji.textContent='';
   }
-  miniEmoji.classList.toggle('is-plane', isPlane());
-  miniIcon.classList.toggle('is-plane', isPlane());
+  miniEmoji.classList.toggle('is-plane', isPlaneEmoji());
+  miniIcon.classList.toggle('is-plane', false); // image is bus, never plane
 }
 
 function fmtRemaining(remainingSec){
@@ -86,48 +85,31 @@ function fmtRemaining(remainingSec){
 function tick(){
   const now = Date.now();
   let remainingMs;
-
-  if (ui.baselineSec <= 0 || ui.startedAt <= 0){
-    remainingMs = 0;
-  } else if (ui.paused){
-    remainingMs = Math.max(0, ui.pausedRemaining || 0);
-  } else {
-    remainingMs = Math.max(0, ui.endAt - now);
-  }
+  if (ui.baselineSec <= 0 || ui.startedAt <= 0) remainingMs = 0;
+  else if (ui.paused) remainingMs = Math.max(0, ui.pausedRemaining || 0);
+  else remainingMs = Math.max(0, ui.endAt - now);
 
   const remainingSec = Math.floor(remainingMs/1000);
   const progress = (ui.baselineSec>0)
     ? Math.min(1, (ui.baselineSec*1000 - remainingMs) / (ui.baselineSec*1000))
     : 0;
 
-  // ETA line
-  if (ui.paused){
-    setText(etaEl, 'ETA paused');
-  } else if (ui.baselineSec > 0){
-    setText(etaEl, `ETA ${fmtRemaining(remainingSec)}`);
-  } else {
-    setText(etaEl, 'ETA --:--');
-  }
+  if (ui.paused) setText(etaEl, 'ETA paused');
+  else if (ui.baselineSec > 0) setText(etaEl, `ETA ${fmtRemaining(remainingSec)}`);
+  else setText(etaEl, 'ETA --:--');
 
-  // Subtext
-  if (ui.paused){
-    setStatus('paused');
-    document.body.classList.add('paused');
-  } else {
+  if (ui.paused){ setStatus('paused'); document.body.classList.add('paused'); }
+  else {
     document.body.classList.remove('paused');
-    if (ui.baselineSec>0 && remainingSec<=0) {
-      setStatus('arrived');
-    } else if (ui.baselineSec>0) {
+    if (ui.baselineSec>0 && remainingSec<=0) setStatus('arrived');
+    else if (ui.baselineSec>0) {
       const sinceStart = now - ui.startedAt;
       if (sinceStart < DEPART_MS) setStatus('departing…');
       else if (remainingSec <= ARRIVE_WIN_SEC) setStatus('arriving soon…');
-      else setStatus(isPlane() ? 'in flight…' : 'en route…');
-    } else {
-      setStatus('preparing…');
-    }
+      else setStatus(isPlaneEmoji() ? 'in flight…' : 'en route…');
+    } else setStatus('preparing…');
   }
 
-  // Labels and progress
   setText(fromEl, ui.from || '—');
   setText(toEl, ui.to || '—');
   laneProg.style.width = (progress*100).toFixed(2) + '%';
@@ -136,14 +118,12 @@ function tick(){
 
 onValue(stateRef, (snap) => {
   const v = snap.val();
-  if (!v){ return; }
+  if (!v) return;
   ui = { ...ui, ...v };
-  if (!tickTimer){
-    tickTimer = setInterval(tick, 1000);
-  }
-  tick(); // immediate
+  if (!tickTimer) tickTimer = setInterval(tick, 1000);
+  tick();
 });
 
-// Safety: hide the old big RV
+// Hide legacy RV
 const legacy = document.getElementById('rv');
 if (legacy) legacy.style.display = 'none';
