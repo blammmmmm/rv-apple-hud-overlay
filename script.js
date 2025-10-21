@@ -1,15 +1,4 @@
-/* ---- BroadcastChannel bridge ---- */
-try {
-  const _rvChan = new BroadcastChannel('rv-hud');
-  _rvChan.onmessage = (ev) => {
-    // forward channel messages to the existing 'message' listener
-    window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
-  };
-  window._rvChan = _rvChan; // debug hook
-} catch (e) {
-  console.warn('BroadcastChannel not available; will rely on postMessage only.');
-}
-/* v11 – subtext words only + crossfade + departing window */
+/* v12 – universal bridges + subtext words only + crossfade + departing window */
 (() => {
   const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
 
@@ -22,10 +11,31 @@ try {
   const miniEmoji = document.getElementById('miniEmoji');
   const laneProg  = document.getElementById('laneProgress');
 
+  /* ---- UNIVERSAL BRIDGES (accept commands from anywhere) ---- */
+  // A) BroadcastChannel -> message
+  try {
+    const _rvChan = new BroadcastChannel('rv-hud');
+    _rvChan.onmessage = (ev) => {
+      window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
+    };
+    window._rvChan = _rvChan; // debug
+  } catch (e) {
+    console.warn('BroadcastChannel not available');
+  }
+  // B) localStorage -> message (same-browser tabs)
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'rv-hud-msg' && e.newValue) {
+      try {
+        const data = JSON.parse(e.newValue);
+        window.dispatchEvent(new MessageEvent('message', { data }));
+      } catch (_) {}
+    }
+  });
+
   // Labels & vehicle defaults
   let fromLabel    = qs('from','—');
   let toLabel      = qs('to','—');
-  let vehicleMode  = 'image';           // default image mode (emoji optional)
+  let vehicleMode  = 'image';           // default image mode
   let vehicleEmoji = '🚐';
   let vehicleImage = qs('rv','assets/rv.png');
 
@@ -39,10 +49,10 @@ try {
 
   // Subtext state
   let currentSubtext = '';
-  let departingTimer = null;      // handles the brief "departing…" window
+  let departingTimer = null;
   const ARRIVING_WINDOW_SEC = 10 * 60;   // 10 minutes
 
-  // Debug HUD (optional via ?debug=1)
+  // Debug HUD (?debug=1)
   const debugOn = qs('debug', null) === '1';
   let debugBox = null;
   function debugRender() {
@@ -60,7 +70,6 @@ try {
     toEl.textContent   = toLabel;
   }
 
-  // Helpers
   function fmtHMS(sec){
     sec = Math.max(0, Math.floor(sec));
     const h = Math.floor(sec/3600);
@@ -74,24 +83,20 @@ try {
     );
   }
 
-  // Crossfade status text (only when it changes)
+  // Crossfade status text
   function setStatus(text){
     if (text === currentSubtext) return;
     currentSubtext = text;
     statusEl.classList.add('is-fading');
-    // after fade-out, swap text, fade in
     setTimeout(() => {
       statusEl.textContent = text;
       statusEl.classList.toggle('paused', text.startsWith('paused'));
-      requestAnimationFrame(() => {
-        statusEl.classList.remove('is-fading');
-      });
-    }, 120); // half of .22s
+      requestAnimationFrame(() => statusEl.classList.remove('is-fading'));
+    }, 120);
   }
 
-  // ETA + subtext logic (no labels here)
+  // ETA + subtext logic
   function renderETA(){
-    // ETA line
     if (paused){
       etaEl.textContent = 'ETA paused';
     } else if (countdownSec > 0){
@@ -102,30 +107,25 @@ try {
       etaEl.textContent = 'ETA --:--';
     }
 
-    // Subtext words only
     if (paused){
-      // Keep any reason set by pause call; default to 'paused'
       if (!statusEl.textContent || !statusEl.textContent.startsWith('paused')) {
         setStatus('paused');
       }
     } else if (baselineSec > 0 && countdownSec <= 0){
       setStatus('arrived');
     } else if (baselineSec > 0 && countdownSec > 0){
-      // In active travel
       if (countdownSec <= ARRIVING_WINDOW_SEC) {
         setStatus('arriving soon…');
       } else {
         setStatus(isPlane() ? 'in flight…' : 'en route…');
       }
     } else {
-      // No timer yet
       setStatus('departing…');
     }
-
     debugRender();
   }
 
-  // Image safety: only show when actually loaded
+  // Only show image if loaded OK
   if (miniIcon) {
     miniIcon.style.display = 'none';
     miniIcon.removeAttribute('src');
@@ -152,14 +152,11 @@ try {
       document.body.classList.remove('emoji-mode');
       if (miniIcon){
         miniIcon.style.left = leftPct;
-        // small cache-bust to dodge any stale bad load
         const bust = vehicleImage.includes('?') ? '&v=1' : '?v=1';
         const next = vehicleImage + bust;
         if (miniIcon.getAttribute('src') !== next) miniIcon.setAttribute('src', next);
       }
-      if (miniEmoji){
-        miniEmoji.textContent = '';
-      }
+      if (miniEmoji){ miniEmoji.textContent = ''; }
     }
 
     miniEmoji && miniEmoji.classList.toggle('is-plane', plane);
@@ -189,17 +186,14 @@ try {
       } else if (baselineSec > 0){
         clearInterval(tickTimer);
         tickTimer = null;
-        setProgressByTimer(); // snap to 100%
-        renderETA(); // will set "arrived"
+        setProgressByTimer();
+        renderETA(); // shows "arrived"
       }
     }, 1000);
   }
 
   function stopTick(){
-    if (tickTimer){
-      clearInterval(tickTimer);
-      tickTimer = null;
-    }
+    if (tickTimer){ clearInterval(tickTimer); tickTimer = null; }
   }
 
   function setPaused(p, reason='', minutes=null){
@@ -218,7 +212,7 @@ try {
     if (!paused && countdownSec>0 && !tickTimer) startTick();
   }
 
-  // ===== Messages =====
+  // ===== MESSAGE API =====
   let gotAnyMessage = false;
   window.addEventListener('message', (event) => {
     const msg = event.data || {};
@@ -239,11 +233,10 @@ try {
       baselineSec = (h*3600) + (m*60);
       countdownSec = baselineSec;
 
-      // brief "departing…" window (1.5s)
+      // brief "departing…" (1.5s)
       if (departingTimer) clearTimeout(departingTimer);
       setStatus('departing…');
       departingTimer = setTimeout(() => {
-        // only switch if still in early phase and not paused/arrived
         if (!paused && baselineSec > 0 && countdownSec > ARRIVING_WINDOW_SEC) {
           setStatus(isPlane() ? 'in flight…' : 'en route…');
         }
@@ -335,7 +328,6 @@ try {
   if (autoStartSec > 0) {
     baselineSec = autoStartSec;
     countdownSec = autoStartSec;
-    // show departing briefly even on demo start
     setStatus('departing…');
     setTimeout(() => {
       if (countdownSec > ARRIVING_WINDOW_SEC) {
@@ -347,8 +339,6 @@ try {
   }
 
   // Failsafe demo (20s) if nothing sent after 2s
-  let gotAnyMessage = false;
-  window.addEventListener('message', () => { gotAnyMessage = true; }, { once:true });
   setTimeout(() => {
     if (!gotAnyMessage && baselineSec === 0) {
       baselineSec = 20; countdownSec = 20;
@@ -359,15 +349,3 @@ try {
     }
   }, 2000);
 })();
-/* ---- BroadcastChannel bridge (so controllers can talk without window refs) ---- */
-try {
-  const _rvChan = new BroadcastChannel('rv-hud');
-  _rvChan.onmessage = (ev) => {
-    // Reuse the existing message handler by re-dispatching as a 'message' event
-    window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
-  };
-  // Optional: expose a way for overlay to confirm it’s listening (debug)
-  window._rvChan = _rvChan;
-} catch (e) {
-  console.warn('BroadcastChannel not available; controller must use window.postMessage directly.', e);
-}
