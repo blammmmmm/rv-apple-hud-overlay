@@ -1,4 +1,4 @@
-/* v12 – universal bridges + subtext words only + crossfade + departing window */
+/* v13 – OBS bridge + 10s departing window + subtext words only + crossfade */
 (() => {
   const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
 
@@ -12,17 +12,19 @@
   const laneProg  = document.getElementById('laneProgress');
 
   /* ---- UNIVERSAL BRIDGES (accept commands from anywhere) ---- */
-  // A) BroadcastChannel -> message
+
+  // A) BroadcastChannel -> message (works across normal tabs)
   try {
     const _rvChan = new BroadcastChannel('rv-hud');
     _rvChan.onmessage = (ev) => {
       window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
     };
-    window._rvChan = _rvChan; // debug
+    window._rvChan = _rvChan; // debug hook
   } catch (e) {
     console.warn('BroadcastChannel not available');
   }
-  // B) localStorage -> message (same-browser tabs)
+
+  // B) localStorage -> message (some browsers; same profile)
   window.addEventListener('storage', (e) => {
     if (e.key === 'rv-hud-msg' && e.newValue) {
       try {
@@ -32,10 +34,20 @@
     }
   });
 
+  // C) OBS-safe direct hook: controller can call overlay._rvDeliver(msg)
+  //    OBS isolates windows; this gives a direct entry point.
+  window._rvDeliver = (msg) => {
+    try {
+      window.dispatchEvent(new MessageEvent('message', { data: msg }));
+    } catch (e) {
+      console.warn('rvDeliver error', e);
+    }
+  };
+
   // Labels & vehicle defaults
   let fromLabel    = qs('from','—');
   let toLabel      = qs('to','—');
-  let vehicleMode  = 'image';           // default image mode
+  let vehicleMode  = 'image';           // image mode by default
   let vehicleEmoji = '🚐';
   let vehicleImage = qs('rv','assets/rv.png');
 
@@ -47,10 +59,11 @@
   let autoResumeTimer = null;
   let progressPct   = 0; // 0..1
 
-  // Subtext state
+  // Subtext state + timing windows
   let currentSubtext = '';
   let departingTimer = null;
-  const ARRIVING_WINDOW_SEC = 10 * 60;   // 10 minutes
+  const DEPARTING_WINDOW_MS = 10_000;     // <-- 10 seconds as requested
+  const ARRIVING_WINDOW_SEC = 10 * 60;    // 10 minutes
 
   // Debug HUD (?debug=1)
   const debugOn = qs('debug', null) === '1';
@@ -95,7 +108,7 @@
     }, 120);
   }
 
-  // ETA + subtext logic
+  // ETA + subtext logic (never echoes labels)
   function renderETA(){
     if (paused){
       etaEl.textContent = 'ETA paused';
@@ -233,14 +246,14 @@
       baselineSec = (h*3600) + (m*60);
       countdownSec = baselineSec;
 
-      // brief "departing…" (1.5s)
+      // "departing…" window (10s)
       if (departingTimer) clearTimeout(departingTimer);
       setStatus('departing…');
       departingTimer = setTimeout(() => {
         if (!paused && baselineSec > 0 && countdownSec > ARRIVING_WINDOW_SEC) {
           setStatus(isPlane() ? 'in flight…' : 'en route…');
         }
-      }, 1500);
+      }, DEPARTING_WINDOW_MS);
 
       setProgressByTimer(); renderETA();
       if (!paused) startTick();
@@ -333,7 +346,7 @@
       if (countdownSec > ARRIVING_WINDOW_SEC) {
         setStatus(isPlane() ? 'in flight…' : 'en route…');
       }
-    }, 1500);
+    }, DEPARTING_WINDOW_MS);
     setProgressByTimer(); renderETA();
     if (!paused) startTick();
   }
@@ -343,7 +356,7 @@
     if (!gotAnyMessage && baselineSec === 0) {
       baselineSec = 20; countdownSec = 20;
       setStatus('departing…');
-      setTimeout(()=> setStatus('en route…'), 1500);
+      setTimeout(()=> setStatus('en route…'), DEPARTING_WINDOW_MS);
       setProgressByTimer(); renderETA();
       startTick();
     }
