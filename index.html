@@ -1,48 +1,176 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>RV Apple HUD — Pill Only</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="styles.css"/>
-  <!-- IMPORTANT: load Firebase build as a module; bump v= to force OBS/Pages refresh -->
-  <script type="module" src="script-firebase.js?v=11"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marathon ETA HUD</title>
+  <link rel="stylesheet" href="styles.css?v=17" />
+  <style>
+    body { margin:0; background:transparent; }
+    .hud-wrap { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); }
+    .pillHUD { display:flex; align-items:center; gap:12px; padding:10px 14px; background:rgba(12,14,18,.84);
+      border:1px solid rgba(60,68,90,.6); border-radius:999px; backdrop-filter: blur(10px); }
+    .loc { font-size:13px; line-height:1.2; color:#e7eaf0; }
+    .eta { font-weight:700; }
+    .lane { position:relative; width:320px; height:6px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; }
+    .lane-progress { position:absolute; left:0; top:0; bottom:0; width:0%; background:#4ade80; /* green */ }
+    #miniEmoji, #miniIcon { position:absolute; top:50%; transform:translate(-50%, -50%); font-size:16px; }
+    .miniWrap { position:relative; width:320px; height:20px; }
+    .arrived { color:#a8ffb6; }
+    .fadeSwap { transition: opacity 200ms ease; }
+    .hidden { display:none !important; }
+  </style>
 </head>
 <body>
-  <div id="root">
-    <div class="stage"></div>
-
-    <!-- Legacy RV (hidden) -->
-    <div id="rv" class="rv" style="display:none;">
-      <img id="rvIcon" alt="RV"/>
-      <div class="shadow"></div>
-    </div>
-
-    <div class="hud-wrap bottom-center">
-      <div class="hud-pill">
-        <div class="hud-top">
-          <div class="states">
-            <span id="fromState">—</span>
-            <span class="arrow">→</span>
-            <span id="toState">—</span>
-          </div>
-
-          <div class="mini-lane">
-            <div class="lane-bg"></div>
-            <div class="lane-progress" id="laneProgress"></div>
-            <img id="miniIcon" class="mini-icon" alt="icon" />
-            <div id="miniEmoji" class="mini-emoji" aria-hidden="true"></div>
-          </div>
-
-          <div class="eta" id="eta">ETA --:--</div>
-        </div>
-
-        <div class="hud-bottom">
-          <div class="status" id="status" aria-live="polite">preparing…</div>
-          <div class="aux" id="aux"></div>
+  <div class="hud-wrap" id="hudWrap">
+    <div class="pillHUD" id="pill">
+      <div class="loc"><span id="fromLabel">From</span> → <span id="toLabel">To</span><br/><span class="eta" id="etaText">ETA —</span></div>
+      <div>
+        <div class="lane"><div class="lane-progress" id="laneProgress"></div></div>
+        <div class="miniWrap">
+          <span id="miniEmoji" class="fadeSwap">✈️</span>
+          <img id="miniIcon" class="fadeSwap" src="" alt="" style="height:16px; opacity:0;" />
         </div>
       </div>
     </div>
   </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+    // ---- Config ----
+    const firebaseConfig = {
+      apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
+      authDomain: "subathon-tracker.firebaseapp.com",
+      databaseURL: "https://subathon-tracker-default-rtdb.firebaseio.com",
+      projectId: "subathon-tracker",
+      storageBucket: "subathon-tracker.appspot.com",
+      messagingSenderId: "196475311335",
+      appId: "1:196475311335:web:ac4411584ea074613ffe42",
+      measurementId: "G-ETY652FL4L"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ---- URL params ----
+    const url = new URL(location.href);
+    const room = url.searchParams.get('room') || 'marathon-pill-tracker';
+
+    // ---- Server time offset ----
+    import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    const offsetRef = dbRef(db, ".info/serverTimeOffset");
+    let serverOffset = 0;
+    onValue(offsetRef, snap => serverOffset = snap.val() || 0);
+    const getServerNow = () => Date.now() + serverOffset;
+
+    // ---- Elements ----
+    const fromEl = document.getElementById('fromLabel');
+    const toEl = document.getElementById('toLabel');
+    const etaEl = document.getElementById('etaText');
+    const progressEl = document.getElementById('laneProgress');
+    const miniEmoji = document.getElementById('miniEmoji');
+    const miniIcon = document.getElementById('miniIcon');
+    const pill = document.getElementById('pill');
+    const hudWrap = document.getElementById('hudWrap');
+
+    // ---- HUD state ----
+    let current = null;
+    let hideTimeout = null;
+
+    function setVehicle(v) {
+      if (!v || v.mode === 'emoji') {
+        miniEmoji.style.opacity = '1';
+        miniEmoji.textContent = (v && v.emoji) || '✈️';
+        miniIcon.style.opacity = '0';
+        miniIcon.src = '';
+      } else if (v.mode === 'image') {
+        miniEmoji.style.opacity = '0';
+        miniIcon.src = v.image || 'assets/bus.png';
+        // Wait for image to load then fade in
+        if (miniIcon.complete) miniIcon.style.opacity = '1';
+        else miniIcon.onload = () => (miniIcon.style.opacity = '1');
+      }
+    }
+
+    function fmtETA(ms) {
+      if (ms <= 0) return "ARRIVED";
+      const s = Math.ceil(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${ss}s`;
+      return `${ss}s`;
+    }
+
+    function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+    function render() {
+      if (!current) return;
+
+      const now = getServerNow();
+      const baseline = (current.baselineSec || 0) * 1000;
+
+      let remaining;
+      if (current.paused) {
+        remaining = Math.max(0, current.pausedRemaining || 0);
+      } else {
+        remaining = Math.max(0, (current.endAt || 0) - now);
+      }
+
+      // Arrived behavior
+      if (remaining <= 0) {
+        etaEl.textContent = "ARRIVED";
+        etaEl.classList.add('arrived');
+        progressEl.style.width = '100%';
+        positionVehicle(1);
+        // Auto-hide after 60s (unless restarted)
+        if (!hideTimeout) {
+          hideTimeout = setTimeout(() => {
+            pill.classList.add('hidden');
+          }, 60_000);
+        }
+        return;
+      } else {
+        // ensure visible if counting again
+        etaEl.classList.remove('arrived');
+        pill.classList.remove('hidden');
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      }
+
+      etaEl.textContent = "ETA " + fmtETA(remaining);
+
+      // Progress
+      const elapsed = baseline - remaining;
+      const p = baseline <= 0 ? 0 : clamp01(elapsed / baseline);
+      progressEl.style.width = (p * 100).toFixed(2) + "%";
+      positionVehicle(p);
+    }
+
+    function positionVehicle(p) {
+      const laneWidth = 320; // matches CSS
+      const x = Math.round(p * laneWidth);
+      const sEmoji = miniEmoji.style.opacity !== '0';
+      const el = sEmoji ? miniEmoji : miniIcon;
+      el.style.left = `${x}px`;
+    }
+
+    // Listen to state
+    onValue(ref(db, `overlays/${room}/state`), snap => {
+      current = snap.val() || null;
+      if (!current) return;
+
+      fromEl.textContent = current.from || "From";
+      toEl.textContent = current.to || "To";
+      setVehicle(current.vehicle);
+
+      // Render immediately then set up interval
+      render();
+    });
+
+    // steady tick — use 250ms so HUD feels smooth but cheap
+    setInterval(render, 250);
+  </script>
 </body>
 </html>
