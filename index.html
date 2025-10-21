@@ -5,14 +5,15 @@
   <title>RV Apple HUD — Pill Only</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="styles.css"/>
-  <script defer src="script-firebase.js"></script>
+  <!-- IMPORTANT: load Firebase build as a module; bump v= to force OBS/Pages refresh -->
+  <script type="module" src="script-firebase.js?v=3"></script>
 </head>
 <body>
   <div id="root">
     <div class="stage"></div>
 
     <!-- Legacy RV (hidden) -->
-    <div id="rv" class="rv">
+    <div id="rv" class="rv" style="display:none;">
       <img id="rvIcon" alt="RV"/>
       <div class="shadow"></div>
     </div>
