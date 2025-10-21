@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HUD Controller — FINAL (Timer + Autosuggest + Helpers)</title>
+  <title>HUD Controller — Version B (Autosuggest + Timer FIXED)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root { color-scheme: dark; }
     body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; background:#0b0e13; color:#e5e7eb; margin:0; padding:24px; }
-    .wrap { max-width: 920px; margin:0 auto; display:grid; gap:16px; }
+    .wrap { max-width: 960px; margin:0 auto; display:grid; gap:16px; }
     .card { background:#121722; border:1px solid #283041; border-radius:14px; padding:16px; }
     h1 { font-size:18px; margin:0 0 8px; }
     label { display:block; font-size:12px; color:#9fb0c7; margin-bottom:6px; }
@@ -16,6 +16,7 @@
     button:hover { background:#223047; }
     .row { display:grid; grid-template-columns: repeat(12, 1fr); gap:10px; align-items:end; }
     .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
     .col-6 { grid-column: span 6; }
     .col-12 { grid-column: span 12; }
     .btn-row { display:flex; gap:8px; flex-wrap:wrap; }
@@ -27,10 +28,10 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getDatabase, ref, update, get } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
-    // Room from URL (?room=...), defaults to your chosen room
+    // ---------- ROOM ----------
     const ROOM = new URLSearchParams(location.search).get('room') || 'marathon-pill-tracker';
 
-    // Your Firebase (same as overlay)
+    // ---------- FIREBASE ----------
     const firebaseConfig = {
       apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
       authDomain: "subathon-tracker.firebaseapp.com",
@@ -41,106 +42,108 @@
       appId: "1:196475311335:web:ac4411584ea074613ffe42",
       measurementId: "G-ETY652FL4L"
     };
-
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
     const stateRef = ref(db, `overlays/${ROOM}/state`);
 
+    // ---------- HELPERS ----------
     const $ = id => document.getElementById(id);
     const now = () => Date.now();
+    async function read() { const s = await get(stateRef); return s.val() || {}; }
+    async function write(obj){ return update(stateRef, { ...obj, updatedAt: now() }); }
 
-    // Autosuggest list you provided
+    // ---------- AUTOSUGGEST ----------
     const PRESET_PLACES = [
-      "Los Angeles, CA","Las Vegas, NV","Flagstaff, AZ","Albuquerque, NM","Denver, CO","Cheyenne, WY","Salt Lake City, UT","Boise, ID","Portland, OR","Seattle, WA","Juneau, AK","Billings, MT","Fargo, ND","Minneapolis, MN","Sioux Falls, SD","Omaha, NE","Des Moines, IA","Milwaukee, WI","Chicago, IL","Detroit, MI","Burlington, VT","Portland, ME","Manchester, NH","Boston, MA","Providence, RI","Bridgeport, CT","New York, NY","Princeton, NJ","Philadelphia, PA","Wilmington, DE","Baltimore, MD","Virginia Beach, VA","Charleston, NC","Jacksonville, FL","Greenville, NC","Charleston, WV","Columbus, OH","Indianapolis, IN","Louisville, KY","Nashville, TN","Atlanta, GA","Birmingham, AL","Kansas City, MO","Wichita, KS","Oklahoma City, OK","Little Rock, AK","Jackson, MS","New Orleans, LA","Houston, TX","Honolulu, HI"
+      "Los Angeles, CA","Las Vegas, NV","Flagstaff, AZ","Albuquerque, NM","Denver, CO","Cheyenne, WY","Salt Lake City, UT","Boise, ID",
+      "Portland, OR","Seattle, WA","Juneau, AK","Billings, MT","Fargo, ND","Minneapolis, MN","Sioux Falls, SD","Omaha, NE","Des Moines, IA",
+      "Milwaukee, WI","Chicago, IL","Detroit, MI","Burlington, VT","Portland, ME","Manchester, NH","Boston, MA","Providence, RI","Bridgeport, CT",
+      "New York, NY","Princeton, NJ","Philadelphia, PA","Wilmington, DE","Baltimore, MD","Virginia Beach, VA","Charleston, NC","Jacksonville, FL",
+      "Greenville, NC","Charleston, WV","Columbus, OH","Indianapolis, IN","Louisville, KY","Nashville, TN","Atlanta, GA","Birmingham, AL",
+      "Kansas City, MO","Wichita, KS","Oklahoma City, OK","Little Rock, AK","Jackson, MS","New Orleans, LA","Houston, TX","Honolulu, HI"
     ];
-    const LS_KEY="rv_places_history";
-    function loadHistory(){try{return JSON.parse(localStorage.getItem(LS_KEY)||"[]");}catch{return[]}}
-    function saveHistory(l){try{localStorage.setItem(LS_KEY,JSON.stringify(l));}catch{}}
-    function merge(a,b){return [...new Set([...a,...b])].sort();}
+    const LS_KEY = "rv_places_history";
+    function loadHistory(){ try{return JSON.parse(localStorage.getItem(LS_KEY)||"[]");}catch{return[]} }
+    function saveHistory(l){ try{localStorage.setItem(LS_KEY, JSON.stringify(l));}catch{} }
+    function merge(a,b){ return [...new Set([...a,...b])].sort(); }
     function rebuildList(){
-      const list=$("#placesList"); list.innerHTML="";
-      merge(PRESET_PLACES,loadHistory()).forEach(v=>{
-        const op=document.createElement("option");
-        op.value=v; list.appendChild(op);
+      const list = $("#placesList"); list.innerHTML = "";
+      merge(PRESET_PLACES, loadHistory()).forEach(v => {
+        const op = document.createElement("option"); op.value = v; list.appendChild(op);
       });
     }
-    function addHist(v){v=(v||"").trim(); if(!v)return;
-      const h=loadHistory(); if(!h.includes(v)){h.push(v); saveHistory(h); rebuildList();}
+    function addHist(v){ v=(v||"").trim(); if(!v) return; const h=loadHistory(); if(!h.includes(v)){ h.push(v); saveHistory(h); rebuildList(); } }
+
+    // ---------- TIMER WRITERS (FIXED) ----------
+    // These fields are what the overlay reads:
+    // baselineSec, startedAt, endAt, paused, pausedAt, pausedRemaining
+    async function startOrSetTimer(hours, minutes){
+      const h = Math.max(0, parseInt(hours,10) || 0);
+      const m = Math.max(0, Math.min(59, parseInt(minutes,10) || 0));
+      const baselineSec = h*3600 + m*60;
+      const startedAt = now();
+      const endAt = startedAt + baselineSec*1000;
+      await write({ baselineSec, startedAt, endAt, paused:false, pausedAt:0, pausedRemaining:0 });
+    }
+    async function addMinutes(deltaMin){
+      const cur = await read();
+      const base = Math.max(0, (cur.baselineSec||0) + deltaMin*60);
+      if (cur.paused){
+        const rem = Math.max(0, (cur.pausedRemaining||0) + deltaMin*60*1000);
+        await write({ baselineSec: base, pausedRemaining: rem });
+      } else {
+        const newEnd = (cur.endAt || now()) + deltaMin*60*1000;
+        await write({ baselineSec: base, endAt: newEnd });
+      }
+    }
+    async function resetTimer(){
+      const cur = await read();
+      const base = cur.baselineSec || 0;
+      const startedAt = now();
+      const endAt = startedAt + base*1000;
+      await write({ startedAt, endAt, paused:false, pausedAt:0, pausedRemaining:0 });
+    }
+    async function stopTimer(){
+      await write({ baselineSec:0, startedAt:0, endAt:0, paused:false, pausedAt:0, pausedRemaining:0 });
+    }
+    async function pauseTimer(){
+      const cur = await read(); if (cur.paused) return;
+      const remaining = Math.max(0, (cur.endAt||now()) - now());
+      await write({ paused:true, pausedAt:now(), pausedRemaining:remaining });
+    }
+    async function resumeTimer(){
+      const cur = await read(); if (!cur.paused) return;
+      const newEnd = now() + Math.max(0, cur.pausedRemaining||0);
+      await write({ paused:false, pausedAt:0, endAt:newEnd, pausedRemaining:0 });
     }
 
-    async function read(){const s=await get(stateRef); return s.val()||{};}
-
-    window.addEventListener('DOMContentLoaded',()=>{
+    // ---------- UI WIRING ----------
+    window.addEventListener('DOMContentLoaded', () => {
       rebuildList();
 
       // Trip labels
       $("#setLabels").onclick = async () => {
-        const cur=await read();
-        const from=$("#from").value.trim()||cur.from||"—";
-        const to  =$("#to").value.trim()  ||cur.to  ||"—";
-        await update(stateRef,{ from, to, updatedAt: now() });
+        const from = $("#from").value.trim() || "—";
+        const to   = $("#to").value.trim()   || "—";
+        await write({ from, to });
         addHist(from); addHist(to);
       };
-      $("#swap").onclick = ()=>{ const f=$("#from").value, t=$("#to").value; $("#from").value=t; $("#to").value=f; };
-      $("#chain").onclick = ()=>{ $("#from").value=$("#to").value.trim(); $("#to").value=""; };
+      $("#swap").onclick  = () => { const f=$("#from").value,t=$("#to").value; $("#from").value=t; $("#to").value=f; };
+      $("#chain").onclick = () => { $("#from").value = $("#to").value.trim(); $("#to").value = ""; };
 
-      // Timer: Start/Set
-      $("#startSet").onclick = async () => {
-        const h = parseInt($("#hours").value,10)||0;
-        const m = Math.min(59, Math.max(0, parseInt($("#minutes").value,10)||0));
-        const base = h*3600 + m*60;
-        const s = now(), e = s + base*1000;
-        await update(stateRef, {
-          baselineSec: base, startedAt: s, endAt: e,
-          paused: false, pausedAt: 0, pausedRemaining: 0,
-          updatedAt: now()
-        });
-      };
-
-      // +/− minutes
+      // Timer controls (FIXED hookup)
+      $("#startSet").onclick = () => startOrSetTimer($("#hours").value, $("#minutes").value);
       document.querySelectorAll("button[data-min]").forEach(b=>{
-        b.onclick = async () => {
-          const cur=await read(), d=parseInt(b.getAttribute("data-min"),10)||0;
-          const base = Math.max(0, (cur.baselineSec||0) + d*60);
-          if (cur.paused){
-            const rem = Math.max(0, (cur.pausedRemaining||0) + d*60*1000);
-            return update(stateRef,{ baselineSec: base, pausedRemaining: rem, updatedAt: now() });
-          }
-          const newEnd = (cur.endAt||now()) + d*60*1000;
-          return update(stateRef,{ baselineSec: base, endAt: newEnd, updatedAt: now() });
-        };
+        b.onclick = () => addMinutes(parseInt(b.getAttribute("data-min"),10)||0);
       });
-
-      // Reset / Stop
-      $("#reset").onclick = async () => {
-        const cur=await read(); const base=cur.baselineSec||0;
-        const s=now(), e=s+base*1000;
-        await update(stateRef,{ startedAt:s, endAt:e, paused:false, pausedAt:0, pausedRemaining:0, updatedAt: now() });
-      };
-      $("#stop").onclick = async () => {
-        await update(stateRef,{ baselineSec:0, startedAt:0, endAt:0, paused:false, pausedAt:0, pausedRemaining:0, updatedAt: now() });
-      };
-
-      // Pause / Resume / Toggle
-      $("#pause").onclick = async () => {
-        const cur=await read(); if(cur.paused) return;
-        const rem = Math.max(0, (cur.endAt||now())-now());
-        await update(stateRef,{ paused:true, pausedAt:now(), pausedRemaining:rem, updatedAt: now() });
-      };
-      $("#resume").onclick = async () => {
-        const cur=await read(); if(!cur.paused) return;
-        const newEnd = now() + Math.max(0, cur.pausedRemaining||0);
-        await update(stateRef,{ paused:false, pausedAt:0, endAt:newEnd, pausedRemaining:0, updatedAt: now() });
-      };
-      $("#toggle").onclick = async () => {
-        const cur=await read();
-        if (cur.paused) return $("#resume").onclick();
-        return $("#pause").onclick();
-      };
+      $("#reset").onclick  = () => resetTimer();
+      $("#stop").onclick   = () => stopTimer();
+      $("#pause").onclick  = () => pauseTimer();
+      $("#resume").onclick = () => resumeTimer();
+      $("#toggle").onclick = async () => { const cur=await read(); return cur.paused ? resumeTimer() : pauseTimer(); };
 
       // Vehicle
-      $("#setBus").onclick   = ()=> update(stateRef,{ vehicle:{mode:"image", image:"assets/bus.png"}, updatedAt: now() });
-      $("#setPlane").onclick = ()=> update(stateRef,{ vehicle:{mode:"emoji", emoji:"✈️"}, updatedAt: now() });
+      $("#setBus").onclick   = () => write({ vehicle:{mode:'image', image:'assets/bus.png'} });
+      $("#setPlane").onclick = () => write({ vehicle:{mode:'emoji', emoji:'✈️'} });
     });
   </script>
 </head>
@@ -153,38 +156,39 @@
 
     <datalist id="placesList"></datalist>
 
+    <!-- Trip labels + helpers -->
     <div class="card">
       <h1>Trip Labels</h1>
       <div class="row">
         <div class="col-6">
           <label>From</label>
-          <input id="from" list="placesList" placeholder="Start location"/>
+          <input id="from" list="placesList" placeholder="Start (e.g., Los Angeles, CA)" />
         </div>
         <div class="col-6">
           <label>To</label>
-          <input id="to" list="placesList" placeholder="Destination"/>
+          <input id="to" list="placesList" placeholder="Destination (e.g., Las Vegas, NV)" />
         </div>
-      </div>
-      <div class="subtle-sep"></div>
-      <div class="btn-row">
-        <button id="swap">Swap</button>
-        <button id="chain">Chain</button>
-        <button id="setLabels">Update Labels</button>
+        <div class="col-12 btn-row" style="margin-top:6px">
+          <button id="swap">Swap</button>
+          <button id="chain">Chain Route</button>
+          <button id="setLabels">Update Labels</button>
+        </div>
       </div>
     </div>
 
+    <!-- Timer -->
     <div class="card">
       <h1>ETA Timer</h1>
       <div class="row">
         <div class="col-3">
           <label>Hours</label>
-          <input id="hours" type="number" value="0"/>
+          <input id="hours" type="number" min="0" step="1" value="0"/>
         </div>
         <div class="col-3">
           <label>Minutes</label>
-          <input id="minutes" type="number" value="30" min="0" max="59"/>
+          <input id="minutes" type="number" min="0" max="59" step="1" value="30"/>
         </div>
-        <div class="col-12 btn-row">
+        <div class="col-12 btn-row" style="margin-top:6px">
           <button id="startSet">Start / Set</button>
           <button data-min="+5">+5</button>
           <button data-min="+15">+15</button>
@@ -198,10 +202,11 @@
       <div class="btn-row">
         <button id="pause">Pause</button>
         <button id="resume">Resume</button>
-        <button id="toggle">Toggle</button>
+        <button id="toggle">Toggle Pause</button>
       </div>
     </div>
 
+    <!-- Vehicle -->
     <div class="card">
       <h1>Vehicle</h1>
       <div class="btn-row">
