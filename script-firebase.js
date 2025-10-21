@@ -1,11 +1,10 @@
-// script-firebase.js — overlay runtime (FINAL)
+// script-firebase.js — overlay runtime (FINAL w/ server time)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
 const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
 const ROOM = qs('room', 'marathon-pill-tracker');
 
-// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
   authDomain: "subathon-tracker.firebaseapp.com",
@@ -19,6 +18,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 const stateRef = ref(db, `overlays/${ROOM}/state`);
+
+// --- SERVER TIME SYNC ---
+let serverOffset = 0;
+onValue(ref(db, ".info/serverTimeOffset"), snap => {
+  serverOffset = Number(snap.val() || 0);
+});
+const nowServer = () => Date.now() + serverOffset;
 
 // HUD DOM
 const fromEl   = document.getElementById('fromState');
@@ -58,7 +64,7 @@ function renderFromState(s){
 
 function compute() {
   const s = lastSnap;
-  const now = Date.now();
+  const now = nowServer();
   const base = Number(s.baselineSec||0);
   const paused = !!s.paused;
 
