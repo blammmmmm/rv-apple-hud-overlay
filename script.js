@@ -1,3 +1,14 @@
+/* ---- BroadcastChannel bridge ---- */
+try {
+  const _rvChan = new BroadcastChannel('rv-hud');
+  _rvChan.onmessage = (ev) => {
+    // forward channel messages to the existing 'message' listener
+    window.dispatchEvent(new MessageEvent('message', { data: ev.data }));
+  };
+  window._rvChan = _rvChan; // debug hook
+} catch (e) {
+  console.warn('BroadcastChannel not available; will rely on postMessage only.');
+}
 /* v11 – subtext words only + crossfade + departing window */
 (() => {
   const qs = (k, d=null) => new URLSearchParams(location.search).get(k) ?? d;
