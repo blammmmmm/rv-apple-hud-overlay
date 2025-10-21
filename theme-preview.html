@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Route 66 Theme Preview — Marathon ETA</title>
+<style>
+  /* Base layout (transparent so it works in OBS too) */
+  :root{
+    --pill-bg: rgba(9,10,14,.72);
+    --pill-border: rgba(255,255,255,.08);
+    --text: #ffffff;
+    --eta: #e5e7eb;
+    --lane-bg: rgba(255,255,255,.10);
+    --lane-fill: #4ade80;
+  }
+  html,body{height:100%;margin:0;background:transparent;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  #app{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:24px}
+  .pill{display:flex;flex-direction:column;gap:6px;min-width:min(92vw,720px);padding:12px 16px;border-radius:999px;
+        background:var(--pill-bg);color:var(--text);border:1px solid var(--pill-border);backdrop-filter:blur(8px);box-shadow:var(--glow,none)}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .states{font-weight:700;letter-spacing:.2px;font-size:clamp(14px,2vw,18px)}
+  .eta{font-weight:700;color:var(--eta);font-size:clamp(13px,2vw,16px)}
+  .arrived{color:#a8ffb6}
+  .bottom{display:flex;align-items:center;gap:10px}
+  .lane{position:relative;width:340px;height:18px;border-radius:999px;overflow:hidden}
+  .lane::before{content:"";position:absolute;inset:0;border-radius:999px;background:var(--lane-bg)}
+  .progress{position:absolute;inset:0 0 0 auto;width:0%;background:var(--lane-fill)}
+  .miniWrap{position:relative;width:340px;height:20px}
+  .veh{position:absolute;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));transition:left .25s linear}
+  #bus{height:16px;display:none}
+  #plane{font-size:18px;display:none}
+  .hidden{display:none!important}
+
+  /* Controller chips (local to preview only) */
+  .themes{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(12,14,18,.6);
+          padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px)}
+  .chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);cursor:pointer;font-size:12px;opacity:.9}
+  .chip.active{border-color:#70a1ff;opacity:1}
+
+  /* -------- Themes (CSS variables only) -------- */
+
+  /* 1) Neon Americana */
+  [data-theme="motel-neon"]{
+    --pill-bg: rgba(10, 8, 20, .78);
+    --pill-border: rgba(153, 112, 255, .25);
+    --text: #EFFFFF;
+    --eta: #FCEBFF;
+    --lane-bg: rgba(94,122,255,.18);
+    --lane-fill: linear-gradient(90deg,#4DA3FF 0%,#9AB6FF 60%,#EFFFFF 100%);
+    --glow: 0 0 20px rgba(77,163,255,.7),0 0 8px rgba(255,59,59,.4);
+  }
+
+  /* 2) Vintage Arrow (Postcard) */
+  [data-theme="vintage-arrow"]{
+    --pill-bg: #2A1E1A;
+    --pill-border: rgba(255,240,220,.18);
+    --text: #F7E9D0;
+    --eta: #FFEFE0;
+    --lane-bg: rgba(255,240,220,.15);
+    --lane-fill: #C9463D;
+  }
+
+  /* 3) Desert Sunset (Cinematic) */
+  [data-theme="desert-sunset"]{
+    --pill-bg: linear-gradient(90deg,#F7A27A 0%, #F568A2 50%, #6D6AE8 100%);
+    --pill-border: rgba(255,255,255,.15);
+    --text: #fff;
+    --eta: #fff;
+    --lane-bg: rgba(255,255,255,.28);
+    --lane-fill: #FFE07D;
+  }
+
+  /* 4) License Plate Minimal (Kitsch-lite) */
+  [data-theme="license-plate"]{
+    --pill-bg: #FAFAFD;
+    --pill-border: #CCD3EA;
+    --text: #0B1A3A;
+    --eta: #0B1A3A;
+    --lane-bg: #DCE3F7;
+    --lane-fill: #0B1A3A;
+  }
+
+  /* Tiny ambient motion (optional) */
+  @keyframes bob{0%{transform:translate(-50%,-50%) rotate(-1deg)}50%{transform:translate(-50%,-52%) rotate(1deg)}100%{transform:translate(-50%,-50%) rotate(-1deg)}}
+  .veh{animation:bob 2.2s ease-in-out infinite}
+  body.paused .veh{animation-play-state:paused;opacity:.95}
+</style>
+</head>
+<body>
+
+<!-- Theme chips -->
+<div class="themes" id="themeBar" role="tablist" aria-label="Theme selector">
+  <button class="chip" data-t="motel-neon">Neon</button>
+  <button class="chip" data-t="vintage-arrow">Vintage</button>
+  <button class="chip" data-t="desert-sunset">Desert</button>
+  <button class="chip" data-t="license-plate">Plate</button>
+</div>
+
+<!-- Pill -->
+<div id="app" data-theme="motel-neon">
+  <div class="pill" id="pill">
+    <div class="top">
+      <div class="states"><span id="from">From</span> → <span id="to">To</span></div>
+      <div class="eta" id="eta">ETA —</div>
+    </div>
+    <div class="bottom">
+      <div class="lane"><div class="progress" id="progress"></div></div>
+      <div class="miniWrap">
+        <img id="bus" class="veh" alt="" src="assets/bus.png" />
+        <span id="plane" class="veh">✈️</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
+    authDomain: "subathon-tracker.firebaseapp.com",
+    databaseURL: "https://subathon-tracker-default-rtdb.firebaseio.com",
+    projectId: "subathon-tracker",
+    storageBucket: "subathon-tracker.appspot.com",
+    messagingSenderId: "196475311335",
+    appId: "1:196475311335:web:ac4411584ea074613ffe42",
+    measurementId: "G-ETY652FL4L"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // URL params
+  const url  = new URL(location.href);
+  const room = url.searchParams.get('room') || 'marathon-pill-tracker';
+
+  // Server time alignment
+  const offsetRef = dbRef(db, ".info/serverTimeOffset");
+  let serverOffset = 0;
+  onValue(offsetRef, s => serverOffset = s.val() || 0);
+  const now = () => Date.now() + serverOffset;
+
+  // UI refs
+  const root = document.getElementById('app');
+  const chips = Array.from(document.querySelectorAll('.chip'));
+  const etaEl = document.getElementById('eta');
+  const fromEl = document.getElementById('from');
+  const toEl = document.getElementById('to');
+  const progressEl = document.getElementById('progress');
+  const busEl = document.getElementById('bus');
+  const planeEl = document.getElementById('plane');
+
+  const THEMES = ["motel-neon","vintage-arrow","desert-sunset","license-plate"];
+  let themeIdx = 0;
+  function applyTheme(idx){
+    themeIdx = (idx + THEMES.length) % THEMES.length;
+    const t = THEMES[themeIdx];
+    root.setAttribute('data-theme', t);
+    chips.forEach(c => c.classList.toggle('active', c.dataset.t === t));
+    flavorVehicle(t);
+  }
+  function flavorVehicle(t){
+    // small aesthetic differences per theme
+    if (t === "motel-neon") {
+      busEl.style.filter = planeEl.style.filter = "drop-shadow(0 0 8px rgba(77,163,255,.9))";
+    } else if (t === "license-plate") {
+      busEl.style.filter = planeEl.style.filter = "none";
+    } else {
+      busEl.style.filter = planeEl.style.filter = "drop-shadow(0 1px 2px rgba(0,0,0,.5))";
+    }
+  }
+  chips.forEach((c,i)=>c.onclick=()=>applyTheme(THEMES.indexOf(c.dataset.t)));
+  applyTheme(0);
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'ArrowRight') applyTheme(themeIdx+1);
+    if (e.key === 'ArrowLeft')  applyTheme(themeIdx-1);
+  });
+
+  // Live state
+  let state = null, hideTimeout = null;
+  onValue(ref(db, `overlays/${room}/state`), snap => {
+    state = snap.val() || {};
+    fromEl.textContent = state.from || "From";
+    toEl.textContent   = state.to   || "To";
+    setVehicle(state.vehicle);
+    render();
+  });
+
+  function setVehicle(v){
+    if (!v || v.mode === "emoji") {
+      planeEl.style.display = "inline";
+      busEl.style.display = "none";
+      planeEl.textContent = (v && v.emoji) || "✈️";
+    } else {
+      busEl.style.display = "inline";
+      planeEl.style.display = "none";
+      busEl.src = v.image || "assets/bus.png";
+    }
+  }
+
+  function fmt(ms){
+    if (ms <= 0) return "ARRIVED";
+    const s = Math.ceil(ms/1000);
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const ss = s%60;
+    if (h>0) return `${h}h ${m}m`;
+    if (m>0) return `${m}m ${ss}s`;
+    return `${ss}s`;
+  }
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function render(){
+    if (!state) return;
+    const baseline = (state.baselineSec||0)*1000;
+    let remaining = 0;
+    if (state.paused) remaining = Math.max(0, state.pausedRemaining||0);
+    else remaining = Math.max(0, (state.endAt||0) - now());
+
+    if (remaining <= 0){
+      etaEl.textContent = "ARRIVED";
+      etaEl.classList.add('arrived');
+      progressEl.style.width = "100%";
+      moveVehicle(1);
+      if (!hideTimeout){
+        hideTimeout = setTimeout(()=> document.querySelector('.pill').classList.add('hidden'), 60_000);
+      }
+      return;
+    } else {
+      etaEl.classList.remove('arrived');
+      document.querySelector('.pill').classList.remove('hidden');
+      if (hideTimeout){ clearTimeout(hideTimeout); hideTimeout = null; }
+    }
+
+    etaEl.textContent = "ETA " + fmt(remaining);
+    const elapsed = baseline - remaining;
+    const p = baseline<=0 ? 0 : clamp01(elapsed / baseline);
+    progressEl.style.width = (p*100).toFixed(2)+"%";
+    moveVehicle(p);
+  }
+  function moveVehicle(p){
+    const laneW = 340;
+    const x = Math.round(p*laneW);
+    const el = (planeEl.style.display === "inline") ? planeEl : busEl;
+    el.style.left = `${x}px`;
+  }
+  setInterval(render, 250);
+</script>
+</body>
+</html>
