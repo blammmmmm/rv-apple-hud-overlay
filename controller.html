@@ -3,92 +3,104 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marathon Travel ETA Controller</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <title>Controller — Marathon Pill</title>
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; background:#0b0c0f; color:#e7eaf0; }
-    .panel { max-width: 780px; margin: 24px auto; background:#12141a; border:1px solid #222736; border-radius:14px; padding:20px; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; margin:10px 0; }
-    label { font-size:12px; opacity:.8; display:block; margin-bottom:6px; }
-    input, select, button { background:#0f1117; color:#e7eaf0; border:1px solid #2a3142; border-radius:10px; padding:10px 12px; }
-    input[type="number"] { width:100px; }
-    button.primary { background:#2463ff; border-color:#2463ff; }
-    button.warn { background:#d97706; border-color:#d97706; }
-    .pill { padding:8px 12px; border-radius:999px; background:#0f1117; border:1px solid #2a3142; }
-    .muted { opacity:.7; font-size:12px; }
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .vehicleBtn { cursor:pointer; }
-    .status { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; background:#0b0c0f; border:1px dashed #2a3142; padding:10px; border-radius:8px; white-space:pre-wrap; }
+    :root{ --bg:#0b0f14; --card:#11161d; --text:#e5e7eb; --muted:#9aa6b2; --accent:#3A74FF; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:960px;margin:24px auto;padding:16px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:var(--card);border:1px solid #212b36;border-radius:12px;padding:14px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3340;background:#0d131a;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #304057;background:#132033;color:#fff;cursor:pointer}
+    button.primary{background:var(--accent);border-color:#2f64de}
+    .row{display:flex;gap:8px;align-items:center}
+    .row>div{flex:1}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .hint{font-size:12px;color:#94a3b8}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#0f1520;border:1px solid #283243;font-size:12px;color:#cbd5e1}
   </style>
 </head>
 <body>
-  <div class="panel">
-    <h2>Controller — Marathon ETA</h2>
-    <div class="row">
-      <div style="flex:1">
-        <label>Room</label>
-        <input id="room" class="pill" placeholder="room key" />
+  <div class="wrap">
+    <h2>Controller — Marathon Travel ETA</h2>
+    <div class="grid">
+      <div class="card">
+        <label>From / To</label>
+        <div class="row">
+          <input id="from" placeholder="From" />
+          <input id="to" placeholder="To" />
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button id="updateLabels" class="primary">Update Labels</button>
+        </div>
       </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="saveRoom" class="primary">Use Room</button>
+
+      <div class="card">
+        <label>Duration</label>
+        <div class="row">
+          <input id="hrs" type="number" min="0" value="0" placeholder="Hours"/>
+          <input id="mins" type="number" min="0" value="2" placeholder="Minutes"/>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button id="start" class="primary">Start / Set</button>
+          <button id="pause">Pause</button>
+          <button id="resume">Resume</button>
+          <button id="reset">Reset</button>
+        </div>
+        <div class="actions" style="margin-top:6px">
+          <button id="add1">+1m</button>
+          <button id="sub1">-1m</button>
+          <button id="add5">+5m</button>
+          <button id="sub5">-5m</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>Vehicle</label>
+        <div class="actions">
+          <button id="busBtn">🚌 Bus (PNG)</button>
+          <button id="planeBtn">✈️ Plane (emoji)</button>
+        </div>
+        <div class="hint" style="margin-top:8px">Bus path must be <span class="pill">assets/bus.png</span></div>
+      </div>
+
+      <div class="card">
+        <label>HUD Theme & FX</label>
+        <div class="row" style="margin-bottom:8px">
+          <div>
+            <label>Mode</label>
+            <select id="modeSel">
+              <option value="day">Day</option>
+              <option value="night">Night</option>
+            </select>
+          </div>
+          <div>
+            <label>Theme</label>
+            <select id="themeSel">
+              <option value="classic">Classic (Cobalt)</option>
+              <option value="usa">USA stripes</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="actions"><button id="starsToggle">Toggle Stars</button></div>
+          <div class="actions"><button id="sparkleToggle">Toggle Sparkle</button></div>
+        </div>
+        <div class="hint" style="margin-top:8px">These update the HUD instantly via Firebase (no URL params needed).</div>
       </div>
     </div>
 
-    <div class="grid2">
-      <div>
-        <label>From</label>
-        <input id="from" list="placesList" placeholder="Los Angeles, CA" />
-        <datalist id="placesList"></datalist>
-      </div>
-      <div>
-        <label>To</label>
-        <input id="to" list="placesList" placeholder="Las Vegas, NV" />
-      </div>
-    </div>
-    <div class="row">
-      <button id="applyLabels">Update Labels</button>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>Hours</label>
-        <input id="hours" type="number" min="0" value="0" />
-      </div>
-      <div>
-        <label>Minutes</label>
-        <input id="minutes" type="number" min="0" value="2" />
-      </div>
-      <div style="display:flex; align-items:flex-end; gap:8px;">
-        <button id="start" class="primary">Start / Set</button>
-        <button id="pause" class="warn">Pause</button>
-        <button id="resume">Resume</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <button class="vehicleBtn" id="driveBtn">Driving 🚌</button>
-      <button class="vehicleBtn" id="planeBtn">Plane ✈️</button>
-    </div>
-
-    <div class="row">
-      <button id="add1m">+1m</button>
-      <button id="sub1m">-1m</button>
-      <button id="add5m">+5m</button>
-      <button id="sub5m">-5m</button>
-    </div>
-
-    <div class="row">
-      <div class="status" id="debug"></div>
+    <div style="margin-top:14px" class="hint">
+      Room: <span id="roomLbl" class="pill"></span>
     </div>
   </div>
 
-  <script type="module" src="script-controller.js?v=17"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // ---- Firebase config (shared) ----
     const firebaseConfig = {
       apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
       authDomain: "subathon-tracker.firebaseapp.com",
@@ -100,165 +112,105 @@
       measurementId: "G-ETY652FL4L"
     };
 
-    // ---- App + DB ----
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db  = getDatabase(app);
 
-    // ---- Server time offset ----
-    import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-    const offsetRef = dbRef(db, ".info/serverTimeOffset");
-    let serverOffset = 0;
-    onValue(offsetRef, snap => {
-      serverOffset = snap.val() || 0;
-      logDebug("serverOffset(ms): " + serverOffset);
-    });
-    const getServerNow = () => Date.now() + serverOffset;
-
-    // ---- UI elems ----
-    const E = id => document.getElementById(id);
-    const roomInput = E('room');
-    const saveRoomBtn = E('saveRoom');
-    const fromInput = E('from');
-    const toInput = E('to');
-    const applyLabelsBtn = E('applyLabels');
-    const hoursInput = E('hours');
-    const minutesInput = E('minutes');
-    const startBtn = E('start');
-    const pauseBtn = E('pause');
-    const resumeBtn = E('resume');
-    const driveBtn = E('driveBtn');
-    const planeBtn = E('planeBtn');
-    const add1m = E('add1m'); const sub1m = E('sub1m');
-    const add5m = E('add5m'); const sub5m = E('sub5m');
-    const debug = E('debug');
-
-    // ---- room from URL ----
     const url = new URL(location.href);
-    const defaultRoom = url.searchParams.get('room') || 'marathon-pill-tracker';
-    roomInput.value = defaultRoom;
+    const room = url.searchParams.get('room') || 'marathon-pill-tracker';
+    document.getElementById('roomLbl').textContent = room;
 
-    function roomPath() {
-      const r = roomInput.value.trim() || 'marathon-pill-tracker';
-      return `overlays/${r}/state`;
-    }
+    const offsetRef = dbRef(db, ".info/serverTimeOffset");
+    let serverOffset = 0; onValue(offsetRef, s => serverOffset = s.val() || 0);
+    const now = () => Date.now() + serverOffset;
 
-    function logDebug(s) {
-      const now = new Date().toLocaleTimeString();
-      debug.textContent = `[${now}] ${s}\n` + debug.textContent;
-      console.debug("[CTRL]", s);
-    }
+    const SREF = ref(db, `overlays/${room}/state`);
 
-    // Listen to current state for visibility
-    onValue(ref(db, roomPath()), snap => {
-      const val = snap.val();
-      logDebug("state: " + JSON.stringify(val, null, 0));
+    // --- UI refs
+    const fromEl = document.getElementById('from');
+    const toEl = document.getElementById('to');
+    const hrs = document.getElementById('hrs');
+    const mins = document.getElementById('mins');
+    const modeSel = document.getElementById('modeSel');
+    const themeSel = document.getElementById('themeSel');
+    const starsBtn = document.getElementById('starsToggle');
+    const sparkleBtn = document.getElementById('sparkleToggle');
+
+    // --- State watcher (to reflect stars/sparkle button labels)
+    let cache = {};
+    onValue(SREF, snap => {
+      cache = snap.val() || {};
+      // update toggle button labels
+      starsBtn.textContent = (cache.stars===false? 'Enable Stars' : 'Disable Stars');
+      sparkleBtn.textContent = (cache.sparkle===false? 'Enable Sparkle' : 'Disable Sparkle');
+      if (cache.mode) modeSel.value = cache.mode;
+      if (cache.theme) themeSel.value = cache.theme;
+      if (cache.from) fromEl.value = cache.from;
+      if (cache.to) toEl.value = cache.to;
     });
 
-    // ---- Actions ----
-    saveRoomBtn.onclick = () => {
-      logDebug("Room set to: " + roomInput.value);
+    // --- Label updates
+    document.getElementById('updateLabels').onclick = async ()=>{
+      await update(SREF, { from: fromEl.value||'', to: toEl.value||'', updatedAt: now() });
     };
 
-    applyLabelsBtn.onclick = async () => {
-      const payload = {
-        from: fromInput.value || "From",
-        to: toInput.value || "To",
-        updatedAt: getServerNow()
-      };
-      await update(ref(db, roomPath()), payload);
-      logDebug("Labels updated");
-    };
-
-    startBtn.onclick = async () => {
-      const h = Number(hoursInput.value || 0);
-      const m = Number(minutesInput.value || 0);
-      const baselineSec = Math.max(0, h * 3600 + m * 60);
-      const now = getServerNow();
-      const endAt = now + baselineSec * 1000;
-
-      const payload = {
-        baselineSec,
-        startedAt: now,
-        endAt,
+    // --- Countdown controls
+    document.getElementById('start').onclick = async ()=>{
+      const totalSec = (parseInt(hrs.value||'0',10)*3600) + (parseInt(mins.value||'0',10)*60);
+      const t0 = now();
+      await update(SREF, {
+        baselineSec: totalSec,
+        startedAt: t0,
+        endAt: t0 + totalSec*1000,
         paused: false,
         pausedAt: 0,
         pausedRemaining: 0,
-        updatedAt: now
-      };
-      await update(ref(db, roomPath()), payload);
-      logDebug(`Start/set: baselineSec=${baselineSec}, endAt=${endAt}`);
-    };
-
-    pauseBtn.onclick = async () => {
-      const now = getServerNow();
-      const snap = await (await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js"))
-        .get(ref(db, roomPath()));
-      const cur = snap.val() || {};
-      const remaining = Math.max(0, (cur.endAt || 0) - now);
-      await update(ref(db, roomPath()), {
-        paused: true,
-        pausedAt: now,
-        pausedRemaining: remaining,
-        updatedAt: now
+        updatedAt: now()
       });
-      logDebug("Paused; remaining(ms)=" + remaining);
+    };
+    document.getElementById('pause').onclick = async ()=>{
+      if (cache.paused) return;
+      const rem = Math.max(0, (cache.endAt||0) - now());
+      await update(SREF, { paused:true, pausedAt: now(), pausedRemaining: rem, updatedAt: now() });
+    };
+    document.getElementById('resume').onclick = async ()=>{
+      if (!cache.paused) return;
+      const t0 = now();
+      const rem = Math.max(0, cache.pausedRemaining||0);
+      await update(SREF, { paused:false, pausedAt:0, endAt: t0 + rem, updatedAt: now() });
+    };
+    document.getElementById('reset').onclick = async ()=>{
+      await update(SREF, { paused:false, pausedAt:0, pausedRemaining:0, startedAt:0, endAt:0, updatedAt: now() });
     };
 
-    resumeBtn.onclick = async () => {
-      const now = getServerNow();
-      const snap = await (await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js"))
-        .get(ref(db, roomPath()));
-      const cur = snap.val() || {};
-      const remaining = Math.max(0, cur.pausedRemaining || 0);
-      await update(ref(db, roomPath()), {
-        paused: false,
-        startedAt: now,
-        endAt: now + remaining,
-        pausedAt: 0,
-        pausedRemaining: 0,
-        updatedAt: now
+    // Add/Sub minutes
+    async function addMinutes(n){
+      const target = (cache.paused ? (now() + (cache.pausedRemaining||0)) : (cache.endAt||now()));
+      const end = Math.max(now(), target + n*60*1000);
+      const rem = Math.max(0, end - now());
+      await update(SREF, {
+        endAt: end,
+        pausedRemaining: cache.paused ? rem : 0,
+        updatedAt: now()
       });
-      logDebug("Resumed; new endAt=" + (now + remaining));
-    };
-
-    async function nudge(deltaMs) {
-      const now = getServerNow();
-      const snap = await (await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js"))
-        .get(ref(db, roomPath()));
-      const cur = snap.val() || {};
-      if (cur.paused) {
-        const pr = Math.max(0, (cur.pausedRemaining || 0) + deltaMs);
-        await update(ref(db, roomPath()), {
-          pausedRemaining: pr,
-          updatedAt: now
-        });
-        logDebug("Nudged pausedRemaining(ms)=" + pr);
-      } else {
-        const endAt = Math.max(now, (cur.endAt || now) + deltaMs);
-        await update(ref(db, roomPath()), { endAt, updatedAt: now });
-        logDebug("Nudged endAt=" + endAt);
-      }
     }
+    document.getElementById('add1').onclick = ()=>addMinutes(1);
+    document.getElementById('sub1').onclick = ()=>addMinutes(-1);
+    document.getElementById('add5').onclick = ()=>addMinutes(5);
+    document.getElementById('sub5').onclick = ()=>addMinutes(-5);
 
-    add1m.onclick = () => nudge(60_000);
-    sub1m.onclick = () => nudge(-60_000);
-    add5m.onclick = () => nudge(5 * 60_000);
-    sub5m.onclick = () => nudge(-5 * 60_000);
+    // --- Vehicle
+    document.getElementById('busBtn').onclick = async ()=>{
+      await update(SREF, { vehicle: { mode:'image', image:'assets/bus.png' }, updatedAt: now() });
+    };
+    document.getElementById('planeBtn').onclick = async ()=>{
+      await update(SREF, { vehicle: { mode:'emoji', emoji:'✈️' }, updatedAt: now() });
+    };
 
-    driveBtn.onclick = async () => {
-      await update(ref(db, roomPath()), {
-        vehicle: { mode: "image", image: "assets/bus.png" },
-        updatedAt: getServerNow()
-      });
-      logDebug("Vehicle: driving");
-    };
-    planeBtn.onclick = async () => {
-      await update(ref(db, roomPath()), {
-        vehicle: { mode: "emoji", emoji: "✈️" },
-        updatedAt: getServerNow()
-      });
-      logDebug("Vehicle: plane");
-    };
+    // --- Theme & FX
+    modeSel.onchange = ()=> update(SREF, { mode: modeSel.value, updatedAt: now() });
+    themeSel.onchange= ()=> update(SREF, { theme: themeSel.value, updatedAt: now() });
+    starsBtn.onclick  = ()=> update(SREF, { stars: !(cache.stars===false), updatedAt: now() });
+    sparkleBtn.onclick= ()=> update(SREF, { sparkle: !(cache.sparkle===false), updatedAt: now() });
   </script>
 </body>
 </html>
