@@ -6,21 +6,20 @@
   <title>HUD — Dark Glass Road</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    /* ====== Dark Glass Road (production HUD) ====== */
+    /* ====== Dark Glass Road (production HUD) — C3 lane, no road lines ====== */
     :root{
-      --glass-bg: rgba(24,26,31,0.70);       /* glass blur */
+      --glass-bg: rgba(24,26,31,0.70);
       --glass-border: rgba(255,255,255,0.10);
       --text: #ffffff;
       --eta: #e5e7eb;
-      --lane-fill: #3A74FF;                  /* cobalt paint */
+      --lane-fill: #3A74FF;                  /* default cobalt */
       --lane-track: rgba(255,255,255,0.10);
-      --horizon-warm: rgba(255,194,102,0.25);
       --star: rgba(255,255,255,0.95);
       --star-dim: rgba(255,255,255,0.60);
 
       /* THEME SIZING */
       --lane-h: 24px;   /* L2 — lane height */
-      --veh-h: 42px;    /* B2 — vehicle height */
+      --veh-h: 42px;    /* vehicle height */
     }
 
     html,body{height:100%;margin:0;background:transparent;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
@@ -49,35 +48,46 @@
     .eta{font-weight:700;color:var(--eta);font-size:15px; transition: opacity .2s ease; }
     .eta.hidden{ opacity:0; visibility:hidden; }
 
-    /* Lane */
+    /* Lane — C3 gradient depth, clean track */
     .laneBox{ position:relative; }
     .lane{position:relative;width:700px;max-width:92vw;height: var(--lane-h);border-radius:999px;overflow:hidden;
           background: var(--lane-track); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25); }
-    .asphalt{ position:absolute; inset:0;
-      background:
-        repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 2px, rgba(255,255,255,0.02) 2px 3px),
-        repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 3px, rgba(255,255,255,0.02) 3px 4px),
-        linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35));
-      filter: saturate(0.6) brightness(0.8);
-      animation: roadScroll 6s linear infinite;
+    /* glass bevel + gloss */
+    .lane::before{ content:""; position:absolute; inset:0; border-radius:inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.15) 100%);
+      pointer-events:none; mix-blend-mode:soft-light;
     }
-    .dashes{ position:absolute; inset:0;
-      background: repeating-linear-gradient(90deg, transparent 0 28px, rgba(210,170,70,0.92) 28px 44px, transparent 44px 72px);
-      mix-blend-mode: screen; opacity:.9; animation: roadScroll 6s linear infinite;
+    .lane::after{ content:""; position:absolute; inset:0; border-radius:inherit;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 0 rgba(0,0,0,.35);
+      pointer-events:none;
     }
-    .horizon{ position:absolute; left:0; right:0; top:0; height:2px; background: var(--horizon-warm); filter: blur(0.3px); }
-    @keyframes roadScroll{ from{ background-position:0 0 } to{ background-position:-120px 0 } }
 
-    .fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--lane-fill); }
-    .fill::after{ content:""; position:absolute; left:0; top:0; right:0; height:1px; background:rgba(255,255,255,.35); opacity:.3; }
+    /* Fill (default cobalt) */
+    .fill{ position:absolute; left:0; top:0; bottom:0; width:0%;
+      background: linear-gradient(180deg, rgba(88,149,255,0.95) 0%, rgba(58,116,255,0.95) 55%, rgba(34,84,210,0.95) 100%);
+    }
+    .fill::before{ content:""; position:absolute; inset:0; border-radius:inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.35) 0, rgba(255,255,255,0) 40%);
+      mix-blend-mode:screen; opacity:.45; pointer-events:none;
+    }
+
+    /* USA theme (red/white/blue animated sheen) */
+    [data-theme="usa"] .fill{
+      background:
+        repeating-linear-gradient(90deg,
+          #e11d2a 0 28px, #ffffff 28px 56px, #1e3a8a 56px 84px),
+        linear-gradient(180deg, rgba(255,255,255,.25) 0, rgba(255,255,255,0) 40%);
+      background-size: 168px 100%, 100% 100%;
+      animation: usaSlide 6s linear infinite;
+    }
+    @keyframes usaSlide{ from{ background-position:0 0, 0 0 } to{ background-position:-168px 0, 0 0 } }
 
     /* Vehicle */
     .vehWrap{ position:absolute; left:0; top:50%; transform: translate(-50%, -50%); }
     .bus{ height: var(--veh-h); display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
     .plane{ font-size: var(--veh-h); display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
     .shadow{ position:absolute; left:50%; top:50%;
-             width: calc(var(--veh-h) * 1.6);      /* scales with vehicle */
-             height: calc(var(--veh-h) * 0.5);
+             width: calc(var(--veh-h) * 1.6); height: calc(var(--veh-h) * 0.5);
              transform: translate(-50%, -45%);
              background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,0.0) 70%);
              filter: blur(1px); opacity:.85; pointer-events:none; }
@@ -98,9 +108,6 @@
 
     /* Night mode overrides */
     [data-mode="night"] .pill{ background: rgba(14,16,20,0.70); }
-    [data-mode="night"] .asphalt{ filter: saturate(0.55) brightness(0.65); }
-    [data-mode="night"] .dashes{ background: repeating-linear-gradient(90deg, transparent 0 28px, rgba(230,235,240,0.65) 28px 44px, transparent 44px 72px); opacity:.8; }
-    [data-mode="night"] .horizon{ background: rgba(150,180,255,0.23); }
     [data-mode="night"] .fill{ box-shadow: 0 0 8px rgba(58,116,255,0.55); }
 
     /* Auto hide after 60s */
@@ -108,7 +115,7 @@
     @keyframes hideOut{ to{ opacity:0; transform: translateY(6px) scale(.98); } }
   </style>
 </head>
-<body data-mode="day">
+<body data-mode="day" data-theme="classic">
   <div id="root">
     <div class="stage">
       <div class="pill" id="pill">
@@ -122,9 +129,6 @@
 
         <div class="laneBox">
           <div class="lane" id="lane">
-            <div class="asphalt"></div>
-            <div class="dashes"></div>
-            <div class="horizon"></div>
             <div class="fill" id="fill"></div>
             <div class="vehWrap" id="veh">
               <div class="shadow" id="shadow"></div>
@@ -165,8 +169,10 @@
     const mode = (url.searchParams.get('mode')||'day').toLowerCase(); // day | night
     const starsOn = url.searchParams.get('stars') !== '0';             // 1 (default) | 0
     const sparkleOn = url.searchParams.get('sparkle') !== '0';         // 1 (default) | 0
+    const theme = (url.searchParams.get('theme')||'classic').toLowerCase(); // classic | usa
 
     document.body.setAttribute('data-mode', mode);
+    document.body.setAttribute('data-theme', theme);
 
     // ------- Server time alignment -------
     const offsetRef = dbRef(db, ".info/serverTimeOffset");
@@ -189,7 +195,7 @@
     const stamp = document.getElementById('stamp');
     const confetti = document.getElementById('confetti');
 
-    // ------- Stars -------
+    /* ------- Stars ------- */
     function seedStars(count=110){
       starField.innerHTML = "";
       const rect = pill.getBoundingClientRect();
@@ -204,7 +210,6 @@
         starField.appendChild(s);
       }
     }
-
     function initStars(){
       if (document.body.getAttribute('data-mode')==='night' && starsOn){
         seedStars(110);
