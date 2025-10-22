@@ -1,45 +1,142 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marathon ETA HUD</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <title>HUD — Dark Glass Road</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
-    body { margin:0; background:transparent; }
-    .hud-wrap { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); }
-    .pillHUD { display:flex; align-items:center; gap:12px; padding:10px 14px; background:rgba(12,14,18,.84);
-      border:1px solid rgba(60,68,90,.6); border-radius:999px; backdrop-filter: blur(10px); }
-    .loc { font-size:13px; line-height:1.2; color:#e7eaf0; }
-    .eta { font-weight:700; }
-    .lane { position:relative; width:320px; height:6px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; }
-    .lane-progress { position:absolute; left:0; top:0; bottom:0; width:0%; background:#4ade80; /* green */ }
-    #miniEmoji, #miniIcon { position:absolute; top:50%; transform:translate(-50%, -50%); font-size:16px; }
-    .miniWrap { position:relative; width:320px; height:20px; }
-    .arrived { color:#a8ffb6; }
-    .fadeSwap { transition: opacity 200ms ease; }
-    .hidden { display:none !important; }
+    /* ====== Dark Glass Road (standalone HUD) ====== */
+    :root{
+      --glass-bg: rgba(24,26,31,0.70);       /* 70% lively glass */
+      --glass-border: rgba(255,255,255,0.10);
+      --text: #ffffff;
+      --eta: #e5e7eb;
+      --lane-fill: #3A74FF;                  /* cobalt paint */
+      --lane-track: rgba(255,255,255,0.10);
+      --horizon-warm: rgba(255,194,102,0.25);
+      --star: rgba(255,255,255,0.95);
+      --star-dim: rgba(255,255,255,0.60);
+    }
+    html,body{height:100%;margin:0;background:transparent;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    #root{position:fixed;inset:0;}
+    .stage{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:18px}
+
+    /* Pill */
+    .pill{position:relative; z-index:6; display:flex;flex-direction:column;gap:6px; min-width:min(92vw,720px); padding:12px 16px;
+          border-radius:999px; background:var(--glass-bg); color:var(--text); border:1px solid var(--glass-border); backdrop-filter:blur(10px);
+          box-shadow: 0 8px 22px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+          opacity:0; transform: translateY(8px) scale(.985); animation: intro .55s cubic-bezier(.21,.9,.26,.99) forwards; }
+    @keyframes intro{to{opacity:1; transform: translateY(0) scale(1);}}
+
+    /* Stars wrap around pill */
+    .stars{ position:absolute; inset:-32px; pointer-events:none; opacity:0; transition: opacity .4s ease; z-index:5; }
+    .stars.active{ opacity:1; }
+    .star{ position:absolute; width:3px; height:3px; border-radius:50%;
+           background: var(--star); box-shadow: 0 0 6px rgba(255,255,255,.7); opacity:.95;
+           animation: twinkle 3.2s ease-in-out infinite; }
+    .star.dim{ background: var(--star-dim); box-shadow: 0 0 4px rgba(255,255,255,.45); opacity:.7; animation-duration: 4.6s; }
+    @keyframes twinkle{ 0%,100%{opacity:.6} 50%{opacity:1} }
+
+    /* Top row */
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .states{font-weight:700;letter-spacing:.2px;font-size:16px; text-shadow: 0 1px 2px rgba(0,0,0,.25);}
+    .eta{font-weight:700;color:var(--eta);font-size:15px; transition: opacity .2s ease; }
+    .eta.hidden{ opacity:0; visibility:hidden; }
+
+    /* Lane */
+    .laneBox{ position:relative; }
+    .lane{position:relative;width:700px;max-width:92vw;height:14px;border-radius:999px;overflow:hidden;
+          background: var(--lane-track); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25); }
+    .asphalt{ position:absolute; inset:0;
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 2px, rgba(255,255,255,0.02) 2px 3px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 3px, rgba(255,255,255,0.02) 3px 4px),
+        linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35));
+      filter: saturate(0.6) brightness(0.8);
+      animation: roadScroll 6s linear infinite;
+    }
+    .dashes{ position:absolute; inset:0;
+      background: repeating-linear-gradient(90deg, transparent 0 28px, rgba(210,170,70,0.92) 28px 44px, transparent 44px 72px);
+      mix-blend-mode: screen; opacity:.9; animation: roadScroll 6s linear infinite;
+    }
+    .horizon{ position:absolute; left:0; right:0; top:0; height:2px; background: var(--horizon-warm); filter: blur(0.3px); }
+    @keyframes roadScroll{ from{ background-position:0 0 } to{ background-position:-120px 0 } }
+
+    .fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--lane-fill); }
+    .fill::after{ content:""; position:absolute; left:0; top:0; right:0; height:1px; background:rgba(255,255,255,.35); opacity:.3; }
+
+    /* Vehicle */
+    .vehWrap{ position:absolute; left:0; top:50%; transform: translate(-50%, -50%); }
+    .bus{ height:20px; display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+    .plane{ font-size:20px; display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+    .shadow{ position:absolute; left:50%; top:50%; width:36px; height:12px; transform: translate(-50%, -45%);
+             background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,0.0) 70%);
+             filter: blur(1px); opacity:.85; pointer-events:none; }
+
+    /* Sparkle trail */
+    .sparkle{ position:absolute; width:3px; height:3px; border-radius:50%; background: rgba(255,255,255,.9);
+              box-shadow: 0 0 6px rgba(255,255,255,.55); opacity:0; pointer-events:none; }
+
+    /* Arrival stamp + in-pill confetti */
+    .stamp{ position:absolute; top:-22px; right:12px; font-weight:800; font-size:12px; letter-spacing:.6px;
+            padding:4px 8px; border:2px solid #A8FFB6; color:#A8FFB6; border-radius:8px; transform: scale(.85) rotate(-6deg);
+            opacity:0; background: rgba(0,0,0,0.30); box-shadow: 0 8px 22px rgba(0,0,0,.25); z-index:7; }
+    .stamp.show{ animation: stampIn 220ms cubic-bezier(.2,.9,.2,1) forwards; }
+    @keyframes stampIn{ 0%{ transform: scale(.7) rotate(-10deg); opacity:0 } 60%{ transform: scale(1.05) rotate(-4deg); opacity:1 } 100%{ transform: scale(1) rotate(-6deg); opacity:1 } }
+
+    .confetti{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:7; }
+    .piece{ position:absolute; width:6px; height:8px; opacity:0; }
+
+    /* Night mode overrides */
+    [data-mode="night"] .pill{ background: rgba(14,16,20,0.70); }
+    [data-mode="night"] .asphalt{ filter: saturate(0.55) brightness(0.65); }
+    [data-mode="night"] .dashes{ background: repeating-linear-gradient(90deg, transparent 0 28px, rgba(230,235,240,0.65) 28px 44px, transparent 44px 72px); opacity:.8; }
+    [data-mode="night"] .horizon{ background: rgba(150,180,255,0.23); }
+    [data-mode="night"] .fill{ box-shadow: 0 0 8px rgba(58,116,255,0.55); }
+
+    /* Auto hide after 60s */
+    .hideOut{ animation: hideOut 420ms ease forwards; }
+    @keyframes hideOut{ to{ opacity:0; transform: translateY(6px) scale(.98); } }
   </style>
 </head>
-<body>
-  <div class="hud-wrap" id="hudWrap">
-    <div class="pillHUD" id="pill">
-      <div class="loc"><span id="fromLabel">From</span> → <span id="toLabel">To</span><br/><span class="eta" id="etaText">ETA —</span></div>
-      <div>
-        <div class="lane"><div class="lane-progress" id="laneProgress"></div></div>
-        <div class="miniWrap">
-          <span id="miniEmoji" class="fadeSwap">✈️</span>
-          <img id="miniIcon" class="fadeSwap" src="" alt="" style="height:16px; opacity:0;" />
+<body data-mode="day">
+  <div id="root">
+    <div class="stage">
+      <div class="pill" id="pill">
+        <!-- Stars live inside pill so they stay framed around it -->
+        <div class="stars" id="stars"></div>
+
+        <div class="top">
+          <div class="states"><span id="from">From</span> → <span id="to">To</span></div>
+          <div class="eta" id="eta">ETA —</div>
+        </div>
+
+        <div class="laneBox">
+          <div class="lane" id="lane">
+            <div class="asphalt"></div>
+            <div class="dashes"></div>
+            <div class="horizon"></div>
+            <div class="fill" id="fill"></div>
+            <div class="vehWrap" id="veh">
+              <div class="shadow" id="shadow"></div>
+              <img id="bus" class="bus" alt="" src="assets/bus.png" />
+              <span id="plane" class="plane">✈️</span>
+            </div>
+          </div>
+          <div class="stamp" id="stamp">ARRIVED</div>
+          <div class="confetti" id="confetti"></div>
         </div>
       </div>
     </div>
   </div>
 
   <script type="module">
+    // ------- Firebase (read-only) -------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-    // ---- Config ----
     const firebaseConfig = {
       apiKey: "AIzaSyB0gJnv1eD4SeXMCRHtFNiHOt122Rbz4XQ",
       authDomain: "subathon-tracker.firebaseapp.com",
@@ -50,127 +147,214 @@
       appId: "1:196475311335:web:ac4411584ea074613ffe42",
       measurementId: "G-ETY652FL4L"
     };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
 
-    // ---- URL params ----
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    // ------- URL params -------
     const url = new URL(location.href);
     const room = url.searchParams.get('room') || 'marathon-pill-tracker';
+    const mode = (url.searchParams.get('mode')||'day').toLowerCase(); // day | night
+    const starsOn = url.searchParams.get('stars') !== '0';             // 1 (default) | 0
+    const sparkleOn = url.searchParams.get('sparkle') !== '0';         // 1 (default) | 0
 
-    // ---- Server time offset ----
-    import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+    document.body.setAttribute('data-mode', mode);
+
+    // ------- Server time alignment -------
     const offsetRef = dbRef(db, ".info/serverTimeOffset");
     let serverOffset = 0;
-    onValue(offsetRef, snap => serverOffset = snap.val() || 0);
-    const getServerNow = () => Date.now() + serverOffset;
+    onValue(offsetRef, s => serverOffset = s.val() || 0);
+    const now = () => Date.now() + serverOffset;
 
-    // ---- Elements ----
-    const fromEl = document.getElementById('fromLabel');
-    const toEl = document.getElementById('toLabel');
-    const etaEl = document.getElementById('etaText');
-    const progressEl = document.getElementById('laneProgress');
-    const miniEmoji = document.getElementById('miniEmoji');
-    const miniIcon = document.getElementById('miniIcon');
+    // ------- UI refs -------
     const pill = document.getElementById('pill');
-    const hudWrap = document.getElementById('hudWrap');
+    const starField = document.getElementById('stars');
+    const fromEl = document.getElementById('from');
+    const toEl = document.getElementById('to');
+    const etaEl = document.getElementById('eta');
+    const lane = document.getElementById('lane');
+    const fillEl = document.getElementById('fill');
+    const veh = document.getElementById('veh');
+    const busEl = document.getElementById('bus');
+    const planeEl = document.getElementById('plane');
+    const shadowEl = document.getElementById('shadow');
+    const stamp = document.getElementById('stamp');
+    const confetti = document.getElementById('confetti');
 
-    // ---- HUD state ----
-    let current = null;
-    let hideTimeout = null;
-
-    function setVehicle(v) {
-      if (!v || v.mode === 'emoji') {
-        miniEmoji.style.opacity = '1';
-        miniEmoji.textContent = (v && v.emoji) || '✈️';
-        miniIcon.style.opacity = '0';
-        miniIcon.src = '';
-      } else if (v.mode === 'image') {
-        miniEmoji.style.opacity = '0';
-        miniIcon.src = v.image || 'assets/bus.png';
-        // Wait for image to load then fade in
-        if (miniIcon.complete) miniIcon.style.opacity = '1';
-        else miniIcon.onload = () => (miniIcon.style.opacity = '1');
+    // ------- Stars -------
+    function seedStars(count=110){
+      starField.innerHTML = "";
+      const rect = pill.getBoundingClientRect();
+      const w = Math.max(rect.width + 400, 900);
+      const h = rect.height + 180;
+      for (let i=0;i<count;i++){
+        const s = document.createElement('div');
+        s.className = 'star' + (Math.random()<0.45 ? ' dim' : '');
+        s.style.left = (rect.left - 200 + Math.random()*w) + 'px';
+        s.style.top  = (rect.top  -  90 + Math.random()*h) + 'px';
+        s.style.animationDelay = (Math.random()*3)+'s';
+        starField.appendChild(s);
       }
     }
 
-    function fmtETA(ms) {
-      if (ms <= 0) return "ARRIVED";
-      const s = Math.ceil(ms / 1000);
-      const h = Math.floor(s / 3600);
-      const m = Math.floor((s % 3600) / 60);
-      const ss = s % 60;
-      if (h > 0) return `${h}h ${m}m`;
-      if (m > 0) return `${m}m ${ss}s`;
-      return `${ss}s`;
-    }
-
-    function clamp01(x) { return Math.max(0, Math.min(1, x)); }
-
-    function render() {
-      if (!current) return;
-
-      const now = getServerNow();
-      const baseline = (current.baselineSec || 0) * 1000;
-
-      let remaining;
-      if (current.paused) {
-        remaining = Math.max(0, current.pausedRemaining || 0);
-      } else {
-        remaining = Math.max(0, (current.endAt || 0) - now);
+    function initStars(){
+      if (document.body.getAttribute('data-mode')==='night' && starsOn){
+        seedStars(110);
+        starField.classList.add('active');
       }
-
-      // Arrived behavior
-      if (remaining <= 0) {
-        etaEl.textContent = "ARRIVED";
-        etaEl.classList.add('arrived');
-        progressEl.style.width = '100%';
-        positionVehicle(1);
-        // Auto-hide after 60s (unless restarted)
-        if (!hideTimeout) {
-          hideTimeout = setTimeout(() => {
-            pill.classList.add('hidden');
-          }, 60_000);
-        }
-        return;
-      } else {
-        // ensure visible if counting again
-        etaEl.classList.remove('arrived');
-        pill.classList.remove('hidden');
-        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
-      }
-
-      etaEl.textContent = "ETA " + fmtETA(remaining);
-
-      // Progress
-      const elapsed = baseline - remaining;
-      const p = baseline <= 0 ? 0 : clamp01(elapsed / baseline);
-      progressEl.style.width = (p * 100).toFixed(2) + "%";
-      positionVehicle(p);
     }
 
-    function positionVehicle(p) {
-      const laneWidth = 320; // matches CSS
-      const x = Math.round(p * laneWidth);
-      const sEmoji = miniEmoji.style.opacity !== '0';
-      const el = sEmoji ? miniEmoji : miniIcon;
-      el.style.left = `${x}px`;
-    }
-
-    // Listen to state
+    // ------- Live state -------
+    let state = null, hideTimeout = null, forceArrived = false;
     onValue(ref(db, `overlays/${room}/state`), snap => {
-      current = snap.val() || null;
-      if (!current) return;
-
-      fromEl.textContent = current.from || "From";
-      toEl.textContent = current.to || "To";
-      setVehicle(current.vehicle);
-
-      // Render immediately then set up interval
-      render();
+      state = snap.val() || {};
+      fromEl.textContent = state.from || "From";
+      toEl.textContent   = state.to   || "To";
+      setVehicle(state.vehicle);
+      render(true);
     });
 
-    // steady tick — use 250ms so HUD feels smooth but cheap
-    setInterval(render, 250);
+    function setVehicle(v){
+      if (!v || v.mode === "emoji") {
+        planeEl.style.display = "inline";
+        busEl.style.display   = "none";
+        planeEl.textContent   = (v && v.emoji) || "✈️";
+      } else {
+        busEl.style.display   = "inline";
+        planeEl.style.display = "none";
+        busEl.src             = v.image || "assets/bus.png";
+      }
+    }
+
+    function fmt(ms){
+      if (ms <= 0) return "ARRIVED";
+      const s = Math.ceil(ms/1000);
+      const h = Math.floor(s/3600);
+      const m = Math.floor((s%3600)/60);
+      const ss = s%60;
+      if (h>0) return `${h}h ${m}m`;
+      if (m>0) return `${m}m ${ss}s`;
+      return `${ss}s`;
+    }
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+    function getVehHalf(){
+      const el = busEl.style.display!=='none' ? busEl : planeEl;
+      const w = el.getBoundingClientRect().width || 20;
+      return Math.round(w/2);
+    }
+
+    let lastX = 0, lastTs = 0;
+    function render(immediate=false){
+      if (!state) return;
+      const baseline = (state.baselineSec||0)*1000;
+      let remaining = 0;
+      if (forceArrived){ remaining = 0; }
+      else if (state.paused) remaining = Math.max(0, state.pausedRemaining||0);
+      else remaining = Math.max(0, (state.endAt||0) - now());
+
+      if (remaining <= 0){
+        // Hide ETA; park vehicle at the end; show stamp+confetti; schedule fade
+        etaEl.textContent = "";
+        etaEl.classList.add('hidden');
+        fillEl.style.width = "100%";
+        moveVehicle(1, immediate);
+        if (!stamp.classList.contains('show')) { stamp.classList.add('show'); burstConfetti(); }
+        if (!hideTimeout){ hideTimeout = setTimeout(()=> pill.classList.add('hideOut'), 60_000); }
+        return;
+      } else {
+        etaEl.classList.remove('hidden');
+        pill.classList.remove('hideOut');
+        stamp.classList.remove('show');
+        if (hideTimeout){ clearTimeout(hideTimeout); hideTimeout = null; }
+      }
+
+      etaEl.textContent = "ETA " + fmt(remaining);
+      const elapsed = baseline - remaining;
+      const p = baseline<=0 ? 0 : clamp01(elapsed / baseline);
+      fillEl.style.width = (p*100).toFixed(2)+"%";
+      moveVehicle(p, immediate);
+    }
+
+    function moveVehicle(p, immediate=false){
+      const laneW = lane.clientWidth;
+      let x = Math.round(p*laneW);
+      const half = getVehHalf();
+      const margin = Math.max(8, half);   // keep vehicle fully inside lane
+      x = Math.max(margin, Math.min(x, laneW - margin));
+      veh.style.left = x + 'px';
+
+      // trailing shadow dynamics (speed-aware)
+      const ts = performance.now();
+      const dt = Math.max(16, ts - lastTs);
+      const dx = x - lastX;
+      lastX = x; lastTs = ts;
+      const speed = Math.min(1, Math.abs(dx) / Math.max(1, laneW) * 16 * (1000/dt));
+      const w = 34 + speed*12; const h = 12 + speed*4;
+      shadowEl.style.width = w + 'px';
+      shadowEl.style.height = h + 'px';
+      shadowEl.style.opacity = String(0.7 + speed*0.15);
+
+      if (sparkleOn) spawnSparkle(x);
+    }
+
+    function spawnSparkle(x){
+      if (Math.random() > 0.35) return;
+      const n = 1 + (Math.random()<0.4?1:0);
+      for (let i=0;i<n;i++){
+        const sp = document.createElement('div');
+        sp.className = 'sparkle';
+        const offset = -8 - Math.random()*18;
+        const yJitter = (Math.random()*8 - 4);
+        sp.style.left = (x + offset) + 'px';
+        sp.style.top  = (lane.clientHeight/2 + yJitter) + 'px';
+        sp.style.opacity = '1';
+        lane.appendChild(sp);
+        const drift = -6 - Math.random()*10;
+        const up = (Math.random()*4 - 2);
+        const life = 300 + Math.random()*220;
+        const start = performance.now();
+        const tick = (t)=>{
+          const k = (t - start)/life;
+          if (k>=1){ sp.remove(); return; }
+          sp.style.transform = `translate(${drift*k}px, ${up*k}px)`;
+          sp.style.opacity = String(1 - k);
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    }
+
+    function burstConfetti(){
+      confetti.innerHTML = "";
+      const colors = ['#3A74FF','#A8FFB6','#F5D06F','#FF7A7A','#9AD0FF'];
+      const N = 12;
+      for (let i=0;i<N;i++){
+        const piece = document.createElement('div');
+        piece.className='piece';
+        piece.style.background = colors[i%colors.length];
+        piece.style.left = (lane.clientWidth - 40 + Math.random()*30) + 'px';
+        piece.style.top = ( -4 + Math.random()*6 ) + 'px';
+        confetti.appendChild(piece);
+        const life = 800 + Math.random()*500;
+        const dx = (Math.random()*60 - 30);
+        const dy = (Math.random()*46 + 24);
+        const rot = (Math.random()*260 - 130);
+        const start = performance.now();
+        const tick = (t)=>{
+          const k = (t - start)/life;
+          if (k>=1){ piece.remove(); return; }
+          piece.style.transform = `translate(${dx*k}px, ${dy*k}px) rotate(${rot*k}deg)`;
+          piece.style.opacity = String(1 - k);
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    }
+
+    // kick things off
+    initStars();
+    setInterval(()=>render(false), 250);
   </script>
 </body>
 </html>
