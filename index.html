@@ -6,20 +6,28 @@
   <title>HUD — Dark Glass Road</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    /* ====== Dark Glass Road (production HUD) — C3 lane, no road lines ====== */
+    /* ====== Dark Glass Road (production HUD) — C3 lane, USA theme option ====== */
     :root{
       --glass-bg: rgba(24,26,31,0.70);
       --glass-border: rgba(255,255,255,0.10);
       --text: #ffffff;
       --eta: #e5e7eb;
-      --lane-fill: #3A74FF;                  /* default cobalt */
+
+      /* Lane + fill */
       --lane-track: rgba(255,255,255,0.10);
+      --lane-h: 24px;         /* L2 */
+      --lane-fill-cobalt-1: rgba(88,149,255,0.95);
+      --lane-fill-cobalt-2: rgba(58,116,255,0.95);
+      --lane-fill-cobalt-3: rgba(34,84,210,0.95);
+
+      /* Vehicle sizes (final) */
+      --veh-h: 56px;          /* BUS height — B4 */
+      --plane-h: 48px;        /* PLANE slightly smaller */
+      --plane-hover: 10px;    /* H2b hover above lane */
+
+      /* Stars */
       --star: rgba(255,255,255,0.95);
       --star-dim: rgba(255,255,255,0.60);
-
-      /* THEME SIZING */
-      --lane-h: 24px;   /* L2 — lane height */
-      --veh-h: 42px;    /* vehicle height */
     }
 
     html,body{height:100%;margin:0;background:transparent;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
@@ -48,10 +56,14 @@
     .eta{font-weight:700;color:var(--eta);font-size:15px; transition: opacity .2s ease; }
     .eta.hidden{ opacity:0; visibility:hidden; }
 
-    /* Lane — C3 gradient depth, clean track */
+    /* Lane — C3 clean glass depth */
     .laneBox{ position:relative; }
-    .lane{position:relative;width:700px;max-width:92vw;height: var(--lane-h);border-radius:999px;overflow:hidden;
-          background: var(--lane-track); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25); }
+    .lane{
+      position:relative;width:700px;max-width:92vw;height: var(--lane-h);
+      border-radius:999px; overflow:visible;                 /* allow plane to float without clipping */
+      background: var(--lane-track);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25);
+    }
     /* glass bevel + gloss */
     .lane::before{ content:""; position:absolute; inset:0; border-radius:inherit;
       background: linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.15) 100%);
@@ -63,15 +75,17 @@
     }
 
     /* Fill (default cobalt) */
-    .fill{ position:absolute; left:0; top:0; bottom:0; width:0%;
-      background: linear-gradient(180deg, rgba(88,149,255,0.95) 0%, rgba(58,116,255,0.95) 55%, rgba(34,84,210,0.95) 100%);
+    .fill{
+      position:absolute; left:0; top:0; bottom:0; width:0%;
+      background: linear-gradient(180deg, var(--lane-fill-cobalt-1) 0%, var(--lane-fill-cobalt-2) 55%, var(--lane-fill-cobalt-3) 100%);
+      border-radius: 999px;
     }
     .fill::before{ content:""; position:absolute; inset:0; border-radius:inherit;
       background: linear-gradient(180deg, rgba(255,255,255,.35) 0, rgba(255,255,255,0) 40%);
       mix-blend-mode:screen; opacity:.45; pointer-events:none;
     }
 
-    /* USA theme (red/white/blue animated sheen) */
+    /* USA theme (animated red/white/blue stripes) */
     [data-theme="usa"] .fill{
       background:
         repeating-linear-gradient(90deg,
@@ -82,15 +96,20 @@
     }
     @keyframes usaSlide{ from{ background-position:0 0, 0 0 } to{ background-position:-168px 0, 0 0 } }
 
-    /* Vehicle */
+    /* Vehicle (bus in-lane; plane above) */
     .vehWrap{ position:absolute; left:0; top:50%; transform: translate(-50%, -50%); }
     .bus{ height: var(--veh-h); display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-    .plane{ font-size: var(--veh-h); display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-    .shadow{ position:absolute; left:50%; top:50%;
-             width: calc(var(--veh-h) * 1.6); height: calc(var(--veh-h) * 0.5);
-             transform: translate(-50%, -45%);
-             background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,0.0) 70%);
-             filter: blur(1px); opacity:.85; pointer-events:none; }
+    .plane{
+      font-size: var(--plane-h); display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+      position: relative; top: calc(-1 * var(--plane-hover)); z-index: 2; /* H2b hover */
+    }
+    .shadow{
+      position:absolute; left:50%; top:50%;
+      width: calc(var(--veh-h) * 1.6); height: calc(var(--veh-h) * 0.5);
+      transform: translate(-50%, -45%);
+      background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,0.0) 70%);
+      filter: blur(1px); opacity:.85; pointer-events:none;
+    }
 
     /* Sparkle trail */
     .sparkle{ position:absolute; width:3px; height:3px; border-radius:50%; background: rgba(255,255,255,.9);
@@ -163,16 +182,16 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    // ------- URL params -------
+    // ------- URL fallbacks (DB will override if present) -------
     const url = new URL(location.href);
     const room = url.searchParams.get('room') || 'marathon-pill-tracker';
-    const mode = (url.searchParams.get('mode')||'day').toLowerCase(); // day | night
-    const starsOn = url.searchParams.get('stars') !== '0';             // 1 (default) | 0
-    const sparkleOn = url.searchParams.get('sparkle') !== '0';         // 1 (default) | 0
-    const theme = (url.searchParams.get('theme')||'classic').toLowerCase(); // classic | usa
+    const urlMode    = (url.searchParams.get('mode')||'').toLowerCase();   // day|night
+    const urlStars   = url.searchParams.get('stars');                      // '1'|'0'|null
+    const urlSparkle = url.searchParams.get('sparkle');                    // '1'|'0'|null
+    const urlTheme   = (url.searchParams.get('theme')||'').toLowerCase();  // classic|usa|''
 
-    document.body.setAttribute('data-mode', mode);
-    document.body.setAttribute('data-theme', theme);
+    // Set temp defaults
+    document.body.setAttribute('data-mode', urlMode || 'day');
 
     // ------- Server time alignment -------
     const offsetRef = dbRef(db, ".info/serverTimeOffset");
@@ -210,20 +229,34 @@
         starField.appendChild(s);
       }
     }
-    function initStars(){
-      if (document.body.getAttribute('data-mode')==='night' && starsOn){
-        seedStars(110);
-        starField.classList.add('active');
-      }
+
+    function initStars(mode, starsOn){
+      if (mode === 'night' && starsOn){ seedStars(110); starField.classList.add('active'); }
+      else { starField.classList.remove('active'); }
     }
 
     // ------- Live state -------
-    let state = null, hideTimeout = null, forceArrived = false;
+    let state = null, hideTimeout = null;
+    let FLAGS = { starsOn: (urlStars !== '0'), sparkleOn: (urlSparkle !== '0') };
+
     onValue(ref(db, `overlays/${room}/state`), snap => {
       state = snap.val() || {};
+
+      // UI prefs from DB (fallback to URL params)
+      const mode    = (state.mode || urlMode || 'day').toLowerCase();
+      const theme   = (state.theme || urlTheme || 'classic').toLowerCase();
+      FLAGS.starsOn   = (typeof state.stars   === 'boolean') ? state.stars   : (urlStars   !== '0');
+      FLAGS.sparkleOn = (typeof state.sparkle === 'boolean') ? state.sparkle : (urlSparkle !== '0');
+
+      document.body.setAttribute('data-mode', mode);
+      document.body.setAttribute('data-theme', theme);
+      initStars(mode, FLAGS.starsOn);
+
+      // Labels & vehicle
       fromEl.textContent = state.from || "From";
       toEl.textContent   = state.to   || "To";
       setVehicle(state.vehicle);
+
       render(true);
     });
 
@@ -251,23 +284,17 @@
     }
     function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
-    function getVehHalf(){
-      const el = busEl.style.display!=='none' ? busEl : planeEl;
-      const w = el.getBoundingClientRect().width || parseFloat(getComputedStyle(el).fontSize) || 34;
-      return Math.round(w/2);
-    }
-
     let lastX = 0, lastTs = 0;
     function render(immediate=false){
       if (!state) return;
       const baseline = (state.baselineSec||0)*1000;
+
       let remaining = 0;
-      if (forceArrived){ remaining = 0; }
-      else if (state.paused) remaining = Math.max(0, state.pausedRemaining||0);
+      if (state.paused) remaining = Math.max(0, state.pausedRemaining||0);
       else remaining = Math.max(0, (state.endAt||0) - now());
 
       if (remaining <= 0){
-        // Hide ETA; park vehicle at the end; show stamp+confetti; schedule fade
+        // arrived
         etaEl.textContent = "";
         etaEl.classList.add('hidden');
         fillEl.style.width = "100%";
@@ -289,28 +316,40 @@
       moveVehicle(p, immediate);
     }
 
+    function getVehHalf(){
+      // width of currently visible vehicle (bus png or emoji plane)
+      const el = (busEl.style.display!=='none') ? busEl : planeEl;
+      const w = el.getBoundingClientRect().width || parseFloat(getComputedStyle(el).fontSize) || 40;
+      return Math.round(w/2);
+    }
+
     function moveVehicle(p, immediate=false){
       const laneW = lane.clientWidth;
-      let x = Math.round(p*laneW);
+      let x = Math.round(p * laneW);
+
+      // clamp so vehicle never clips outside
       const half = getVehHalf();
-      const margin = Math.max(8, half);   // keep vehicle fully inside lane
+      const margin = Math.max(8, half);
       x = Math.max(margin, Math.min(x, laneW - margin));
       veh.style.left = x + 'px';
 
-      // trailing shadow dynamics (speed-aware)
+      // speed-aware shadow; scale to visible element width
       const ts = performance.now();
       const dt = Math.max(16, ts - lastTs);
       const dx = x - lastX;
       lastX = x; lastTs = ts;
+
+      const visibleEl = (busEl.style.display!=='none') ? busEl : planeEl;
+      const baseW = visibleEl.getBoundingClientRect().width || 40;
+
       const speed = Math.min(1, Math.abs(dx) / Math.max(1, laneW) * 16 * (1000/dt));
-      const baseW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--veh-h')) || 34;
       const w = baseW * (1.6 + 0.4*speed);
       const h = baseW * (0.50 + 0.10*speed);
       shadowEl.style.width = w + 'px';
       shadowEl.style.height = h + 'px';
       shadowEl.style.opacity = String(0.7 + speed*0.15);
 
-      if (sparkleOn) spawnSparkle(x);
+      if (FLAGS.sparkleOn) spawnSparkle(x);
     }
 
     function spawnSparkle(x){
@@ -367,8 +406,7 @@
       }
     }
 
-    // kick things off
-    initStars();
+    // Kick off render
     setInterval(()=>render(false), 250);
   </script>
 </body>
