@@ -6,9 +6,9 @@
   <title>HUD — Dark Glass Road</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    /* ====== Dark Glass Road (standalone HUD) ====== */
+    /* ====== Dark Glass Road (production HUD) ====== */
     :root{
-      --glass-bg: rgba(24,26,31,0.70);       /* 70% lively glass */
+      --glass-bg: rgba(24,26,31,0.70);       /* glass blur */
       --glass-border: rgba(255,255,255,0.10);
       --text: #ffffff;
       --eta: #e5e7eb;
@@ -17,7 +17,12 @@
       --horizon-warm: rgba(255,194,102,0.25);
       --star: rgba(255,255,255,0.95);
       --star-dim: rgba(255,255,255,0.60);
+
+      /* THEME SIZING */
+      --lane-h: 24px;   /* L2 — lane height */
+      --veh-h: 34px;    /* B2 — vehicle height */
     }
+
     html,body{height:100%;margin:0;background:transparent;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     #root{position:fixed;inset:0;}
     .stage{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:18px}
@@ -46,7 +51,7 @@
 
     /* Lane */
     .laneBox{ position:relative; }
-    .lane{position:relative;width:700px;max-width:92vw;height:14px;border-radius:999px;overflow:hidden;
+    .lane{position:relative;width:700px;max-width:92vw;height: var(--lane-h);border-radius:999px;overflow:hidden;
           background: var(--lane-track); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25); }
     .asphalt{ position:absolute; inset:0;
       background:
@@ -68,9 +73,12 @@
 
     /* Vehicle */
     .vehWrap{ position:absolute; left:0; top:50%; transform: translate(-50%, -50%); }
-    .bus{ height:20px; display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-    .plane{ font-size:20px; display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-    .shadow{ position:absolute; left:50%; top:50%; width:36px; height:12px; transform: translate(-50%, -45%);
+    .bus{ height: var(--veh-h); display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+    .plane{ font-size: var(--veh-h); display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+    .shadow{ position:absolute; left:50%; top:50%;
+             width: calc(var(--veh-h) * 1.6);      /* scales with vehicle */
+             height: calc(var(--veh-h) * 0.5);
+             transform: translate(-50%, -45%);
              background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,0.0) 70%);
              filter: blur(1px); opacity:.85; pointer-events:none; }
 
@@ -240,7 +248,7 @@
 
     function getVehHalf(){
       const el = busEl.style.display!=='none' ? busEl : planeEl;
-      const w = el.getBoundingClientRect().width || 20;
+      const w = el.getBoundingClientRect().width || parseFloat(getComputedStyle(el).fontSize) || 34;
       return Math.round(w/2);
     }
 
@@ -290,7 +298,9 @@
       const dx = x - lastX;
       lastX = x; lastTs = ts;
       const speed = Math.min(1, Math.abs(dx) / Math.max(1, laneW) * 16 * (1000/dt));
-      const w = 34 + speed*12; const h = 12 + speed*4;
+      const baseW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--veh-h')) || 34;
+      const w = baseW * (1.6 + 0.4*speed);
+      const h = baseW * (0.50 + 0.10*speed);
       shadowEl.style.width = w + 'px';
       shadowEl.style.height = h + 'px';
       shadowEl.style.opacity = String(0.7 + speed*0.15);
@@ -334,7 +344,7 @@
         piece.className='piece';
         piece.style.background = colors[i%colors.length];
         piece.style.left = (lane.clientWidth - 40 + Math.random()*30) + 'px';
-        piece.style.top = ( -4 + Math.random()*6 ) + 'px';
+        piece.style.top = ( -6 + Math.random()*6 ) + 'px';
         confetti.appendChild(piece);
         const life = 800 + Math.random()*500;
         const dx = (Math.random()*60 - 30);
