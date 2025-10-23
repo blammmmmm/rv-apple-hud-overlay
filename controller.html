@@ -12,6 +12,7 @@
     .card{background:var(--card);border:1px solid #212b36;border-radius:12px;padding:14px}
     label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
     input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3340;background:#0d131a;color:#fff}
+    input[type=range]{padding:0}
     button{padding:10px 14px;border-radius:10px;border:1px solid #304057;background:#132033;color:#fff;cursor:pointer}
     button.primary{background:var(--accent);border-color:#2f64de}
     .row{display:flex;gap:8px;align-items:center}
@@ -83,11 +84,19 @@
             </select>
           </div>
         </div>
-        <div class="row">
+        <div class="row" style="margin-bottom:8px">
           <div class="actions"><button id="starsToggle">Toggle Stars</button></div>
           <div class="actions"><button id="sparkleToggle">Toggle Sparkle</button></div>
         </div>
-        <div class="hint" style="margin-top:8px">These update the HUD instantly via Firebase (no URL params needed).</div>
+
+        <label style="margin-top:10px">Vehicle Start Position</label>
+        <div class="row" style="align-items:center">
+          <input id="startPos" type="range" min="0" max="100" value="0" />
+          <div style="width:64px;text-align:right"><span id="startPosVal">0%</span></div>
+        </div>
+        <div class="hint" style="margin-top:6px">
+          Sets where the vehicle begins on the blue pill (0% = far left, 100% = far right).
+        </div>
       </div>
     </div>
 
@@ -125,7 +134,7 @@
 
     const SREF = ref(db, `overlays/${room}/state`);
 
-    // --- UI refs
+    // UI refs
     const fromEl = document.getElementById('from');
     const toEl = document.getElementById('to');
     const hrs = document.getElementById('hrs');
@@ -134,26 +143,30 @@
     const themeSel = document.getElementById('themeSel');
     const starsBtn = document.getElementById('starsToggle');
     const sparkleBtn = document.getElementById('sparkleToggle');
+    const startPos = document.getElementById('startPos');
+    const startPosVal = document.getElementById('startPosVal');
 
-    // --- State watcher (to reflect stars/sparkle button labels)
+    // State watcher
     let cache = {};
     onValue(SREF, snap => {
       cache = snap.val() || {};
-      // update toggle button labels
       starsBtn.textContent = (cache.stars===false? 'Enable Stars' : 'Disable Stars');
       sparkleBtn.textContent = (cache.sparkle===false? 'Enable Sparkle' : 'Disable Sparkle');
       if (cache.mode) modeSel.value = cache.mode;
       if (cache.theme) themeSel.value = cache.theme;
       if (cache.from) fromEl.value = cache.from;
       if (cache.to) toEl.value = cache.to;
+      const pct = Math.round((cache.startOffsetPct ?? 0) * 100);
+      startPos.value = pct;
+      startPosVal.textContent = pct + '%';
     });
 
-    // --- Label updates
+    // Labels
     document.getElementById('updateLabels').onclick = async ()=>{
       await update(SREF, { from: fromEl.value||'', to: toEl.value||'', updatedAt: now() });
     };
 
-    // --- Countdown controls
+    // Countdown
     document.getElementById('start').onclick = async ()=>{
       const totalSec = (parseInt(hrs.value||'0',10)*3600) + (parseInt(mins.value||'0',10)*60);
       const t0 = now();
@@ -198,7 +211,7 @@
     document.getElementById('add5').onclick = ()=>addMinutes(5);
     document.getElementById('sub5').onclick = ()=>addMinutes(-5);
 
-    // --- Vehicle
+    // Vehicle
     document.getElementById('busBtn').onclick = async ()=>{
       await update(SREF, { vehicle: { mode:'image', image:'assets/bus.png' }, updatedAt: now() });
     };
@@ -206,11 +219,20 @@
       await update(SREF, { vehicle: { mode:'emoji', emoji:'✈️' }, updatedAt: now() });
     };
 
-    // --- Theme & FX
+    // Theme & FX
     modeSel.onchange = ()=> update(SREF, { mode: modeSel.value, updatedAt: now() });
     themeSel.onchange= ()=> update(SREF, { theme: themeSel.value, updatedAt: now() });
     starsBtn.onclick  = ()=> update(SREF, { stars: !(cache.stars===false), updatedAt: now() });
     sparkleBtn.onclick= ()=> update(SREF, { sparkle: !(cache.sparkle===false), updatedAt: now() });
+
+    // Start position (0–100 → 0..1)
+    startPos.oninput = ()=>{
+      startPosVal.textContent = startPos.value + '%';
+    };
+    startPos.onchange = async ()=>{
+      const pct = Math.max(0, Math.min(100, parseInt(startPos.value||'0',10)));
+      await update(SREF, { startOffsetPct: pct/100, updatedAt: now() });
+    };
   </script>
 </body>
 </html>
