@@ -20,10 +20,10 @@
       --lane-fill-cobalt-2: rgba(58,116,255,0.95);
       --lane-fill-cobalt-3: rgba(34,84,210,0.95);
 
-      /* Vehicle sizes (final) */
+      /* Vehicle sizes (updated) */
       --veh-h: 56px;          /* BUS height — B4 */
-      --plane-h: 48px;        /* PLANE slightly smaller */
-      --plane-hover: 10px;    /* H2b hover above lane */
+      --plane-h: 40px;        /* PLANE smaller (was 48 → now 40) */
+      --plane-hover: 10px;    /* hover above lane */
 
       /* Stars */
       --star: rgba(255,255,255,0.95);
@@ -41,7 +41,7 @@
           opacity:0; transform: translateY(8px) scale(.985); animation: intro .55s cubic-bezier(.21,.9,.26,.99) forwards; }
     @keyframes intro{to{opacity:1; transform: translateY(0) scale(1);}}
 
-    /* Stars wrap around pill */
+    /* Stars */
     .stars{ position:absolute; inset:-32px; pointer-events:none; opacity:0; transition: opacity .4s ease; z-index:5; }
     .stars.active{ opacity:1; }
     .star{ position:absolute; width:3px; height:3px; border-radius:50%;
@@ -60,11 +60,10 @@
     .laneBox{ position:relative; }
     .lane{
       position:relative;width:700px;max-width:92vw;height: var(--lane-h);
-      border-radius:999px; overflow:visible;                 /* allow plane to float without clipping */
+      border-radius:999px; overflow:visible; /* allow plane to float */
       background: var(--lane-track);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 8px 18px rgba(0,0,0,.25);
     }
-    /* glass bevel + gloss */
     .lane::before{ content:""; position:absolute; inset:0; border-radius:inherit;
       background: linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.15) 100%);
       pointer-events:none; mix-blend-mode:soft-light;
@@ -85,7 +84,7 @@
       mix-blend-mode:screen; opacity:.45; pointer-events:none;
     }
 
-    /* USA theme (animated red/white/blue stripes) */
+    /* USA theme */
     [data-theme="usa"] .fill{
       background:
         repeating-linear-gradient(90deg,
@@ -101,7 +100,7 @@
     .bus{ height: var(--veh-h); display:none; user-select:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
     .plane{
       font-size: var(--plane-h); display:none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
-      position: relative; top: calc(-1 * var(--plane-hover)); z-index: 2; /* H2b hover */
+      position: relative; top: calc(-1 * var(--plane-hover)); z-index: 2;
     }
     .shadow{
       position:absolute; left:50%; top:50%;
@@ -115,7 +114,7 @@
     .sparkle{ position:absolute; width:3px; height:3px; border-radius:50%; background: rgba(255,255,255,.9);
               box-shadow: 0 0 6px rgba(255,255,255,.55); opacity:0; pointer-events:none; }
 
-    /* Arrival stamp + in-pill confetti */
+    /* Arrival stamp + confetti */
     .stamp{ position:absolute; top:-22px; right:12px; font-weight:800; font-size:12px; letter-spacing:.6px;
             padding:4px 8px; border:2px solid #A8FFB6; color:#A8FFB6; border-radius:8px; transform: scale(.85) rotate(-6deg);
             opacity:0; background: rgba(0,0,0,0.30); box-shadow: 0 8px 22px rgba(0,0,0,.25); z-index:7; }
@@ -125,7 +124,7 @@
     .confetti{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:7; }
     .piece{ position:absolute; width:6px; height:8px; opacity:0; }
 
-    /* Night mode overrides */
+    /* Night mode */
     [data-mode="night"] .pill{ background: rgba(14,16,20,0.70); }
     [data-mode="night"] .fill{ box-shadow: 0 0 8px rgba(58,116,255,0.55); }
 
@@ -138,7 +137,7 @@
   <div id="root">
     <div class="stage">
       <div class="pill" id="pill">
-        <!-- Stars live inside pill so they stay framed around it -->
+        <!-- Stars -->
         <div class="stars" id="stars"></div>
 
         <div class="top">
@@ -163,7 +162,6 @@
   </div>
 
   <script type="module">
-    // ------- Firebase (read-only) -------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
     import { ref as dbRef } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
@@ -182,24 +180,23 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    // ------- URL fallbacks (DB will override if present) -------
+    // URL fallbacks (DB wins if present)
     const url = new URL(location.href);
     const room = url.searchParams.get('room') || 'marathon-pill-tracker';
-    const urlMode    = (url.searchParams.get('mode')||'').toLowerCase();   // day|night
-    const urlStars   = url.searchParams.get('stars');                      // '1'|'0'|null
-    const urlSparkle = url.searchParams.get('sparkle');                    // '1'|'0'|null
-    const urlTheme   = (url.searchParams.get('theme')||'').toLowerCase();  // classic|usa|''
+    const urlMode    = (url.searchParams.get('mode')||'').toLowerCase();
+    const urlStars   = url.searchParams.get('stars');
+    const urlSparkle = url.searchParams.get('sparkle');
+    const urlTheme   = (url.searchParams.get('theme')||'').toLowerCase();
 
-    // Set temp defaults
     document.body.setAttribute('data-mode', urlMode || 'day');
 
-    // ------- Server time alignment -------
+    // Server time
     const offsetRef = dbRef(db, ".info/serverTimeOffset");
     let serverOffset = 0;
     onValue(offsetRef, s => serverOffset = s.val() || 0);
     const now = () => Date.now() + serverOffset;
 
-    // ------- UI refs -------
+    // UI refs
     const pill = document.getElementById('pill');
     const starField = document.getElementById('stars');
     const fromEl = document.getElementById('from');
@@ -214,7 +211,7 @@
     const stamp = document.getElementById('stamp');
     const confetti = document.getElementById('confetti');
 
-    /* ------- Stars ------- */
+    // Stars
     function seedStars(count=110){
       starField.innerHTML = "";
       const rect = pill.getBoundingClientRect();
@@ -229,15 +226,15 @@
         starField.appendChild(s);
       }
     }
-
     function initStars(mode, starsOn){
       if (mode === 'night' && starsOn){ seedStars(110); starField.classList.add('active'); }
       else { starField.classList.remove('active'); }
     }
 
-    // ------- Live state -------
+    // Live state
     let state = null, hideTimeout = null;
     let FLAGS = { starsOn: (urlStars !== '0'), sparkleOn: (urlSparkle !== '0') };
+    let START_OFFSET = 0; // 0..1 (vehicle starting position)
 
     onValue(ref(db, `overlays/${room}/state`), snap => {
       state = snap.val() || {};
@@ -247,6 +244,7 @@
       const theme   = (state.theme || urlTheme || 'classic').toLowerCase();
       FLAGS.starsOn   = (typeof state.stars   === 'boolean') ? state.stars   : (urlStars   !== '0');
       FLAGS.sparkleOn = (typeof state.sparkle === 'boolean') ? state.sparkle : (urlSparkle !== '0');
+      START_OFFSET = Math.max(0, Math.min(1, Number(state.startOffsetPct ?? 0)));
 
       document.body.setAttribute('data-mode', mode);
       document.body.setAttribute('data-theme', theme);
@@ -294,7 +292,6 @@
       else remaining = Math.max(0, (state.endAt||0) - now());
 
       if (remaining <= 0){
-        // arrived
         etaEl.textContent = "";
         etaEl.classList.add('hidden');
         fillEl.style.width = "100%";
@@ -312,20 +309,23 @@
       etaEl.textContent = "ETA " + fmt(remaining);
       const elapsed = baseline - remaining;
       const p = baseline<=0 ? 0 : clamp01(elapsed / baseline);
-      fillEl.style.width = (p*100).toFixed(2)+"%";
-      moveVehicle(p, immediate);
+
+      // Map progress into offset domain: p' = start + p*(1-start)
+      const pGlobal = START_OFFSET + p * (1 - START_OFFSET);
+
+      fillEl.style.width = (pGlobal*100).toFixed(2)+"%";
+      moveVehicle(pGlobal, immediate);
     }
 
     function getVehHalf(){
-      // width of currently visible vehicle (bus png or emoji plane)
       const el = (busEl.style.display!=='none') ? busEl : planeEl;
       const w = el.getBoundingClientRect().width || parseFloat(getComputedStyle(el).fontSize) || 40;
       return Math.round(w/2);
     }
 
-    function moveVehicle(p, immediate=false){
+    function moveVehicle(pGlobal, immediate=false){
       const laneW = lane.clientWidth;
-      let x = Math.round(p * laneW);
+      let x = Math.round(pGlobal * laneW);
 
       // clamp so vehicle never clips outside
       const half = getVehHalf();
@@ -406,7 +406,6 @@
       }
     }
 
-    // Kick off render
     setInterval(()=>render(false), 250);
   </script>
 </body>
